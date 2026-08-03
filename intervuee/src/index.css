@@ -1,0 +1,64 @@
+/* Fonts loaded via index.html <link> tags */
+
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  html {
+    scroll-behavior: smooth;
+  }
+  body {
+    background-color: #f8fafc;
+    color: #0f172a;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+  ::selection {
+    background-color: rgba(99, 102, 241, 0.15);
+  }
+  :focus-visible {
+    outline: 2px solid #6366f1;
+    outline-offset: 2px;
+  }
+}
+
+@layer components {
+  .card {
+    @apply bg-white border border-slate-200 rounded-2xl shadow-sm;
+  }
+  .btn-primary {
+    @apply inline-flex items-center justify-center gap-2 rounded-xl bg-brand-600 hover:bg-brand-700
+    text-white font-medium px-5 py-3 transition-all duration-150 shadow-sm
+    disabled:opacity-50 disabled:cursor-not-allowed active:scale-[0.98];
+  }
+  .btn-secondary {
+    @apply inline-flex items-center justify-center gap-2 rounded-xl bg-white hover:bg-slate-50
+    border border-slate-200 hover:border-slate-300 text-slate-700 font-medium px-5 py-3
+    transition-all duration-150 shadow-sm active:scale-[0.98];
+  }
+  .input-field {
+    @apply w-full bg-white border border-slate-200 rounded-xl px-4 py-3 text-slate-900
+    placeholder:text-slate-400 focus:border-brand-500 focus:ring-2 focus:ring-brand-500/10
+    hover:border-slate-300 transition-all duration-150 outline-none;
+  }
+  .label-text {
+    @apply text-sm font-medium text-slate-700 mb-1.5 block;
+  }
+  .badge-success {
+    @apply text-xs text-emerald-700 bg-emerald-50 border border-emerald-200 rounded-full px-2.5 py-1;
+  }
+  .badge-brand {
+    @apply text-xs text-brand-700 bg-brand-50 border border-brand-200 rounded-full px-2.5 py-1;
+  }
+  .badge-muted {
+    @apply text-xs text-slate-600 bg-slate-100 border border-slate-200 rounded-full px-2.5 py-1;
+  }
+  .alert-error {
+    @apply flex items-start gap-2 text-sm text-rose-700 bg-rose-50 border border-rose-200 rounded-xl px-3 py-2.5;
+  }
+  .alert-success {
+    @apply flex items-start gap-2 text-sm text-emerald-700 bg-emerald-50 border border-emerald-200 rounded-xl px-3 py-2.5;
+  }
+}
