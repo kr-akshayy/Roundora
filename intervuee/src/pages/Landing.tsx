@@ -20,10 +20,17 @@ export default function Landing() {
       {/* Hero */}
       <section className="max-w-6xl mx-auto px-6 pt-16 pb-20 grid lg:grid-cols-2 gap-12 items-center">
         <div>
-          <div className="inline-flex items-center gap-2 text-xs font-semibold text-brand-700 bg-brand-50 border border-brand-200 rounded-full px-3 py-1.5 mb-6">
+        <div className="inline-flex items-center gap-2.5 mb-6">
+          <img
+            src="/roundora-logo.jpg"
+            alt="Roundora"
+            style={{ width: '32px', height: '32px', borderRadius: '8px', objectFit: 'cover', boxShadow: '0 2px 10px rgba(99,102,241,0.3)' }}
+          />
+          <div className="inline-flex items-center gap-1.5 text-xs font-semibold text-brand-700 bg-brand-50 border border-brand-200 rounded-full px-3 py-1.5">
             <Sparkles size={12} />
-            Practice the exact round you're nervous about
+            Roundora — Practice the exact round you're nervous about
           </div>
+        </div>
           <h1 className="text-4xl sm:text-5xl font-bold tracking-tight leading-[1.1] mb-6 text-slate-900">
             Mock interviews with engineers who've actually{' '}
             <span className="text-brand-600">sat on the other side</span> of the table.

@@ -1,6 +1,6 @@
 import { useState, FormEvent } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { AlertCircle, GraduationCap, Briefcase, Eye, EyeOff, ArrowLeft, Sparkles } from 'lucide-react';
+import { AlertCircle, GraduationCap, Briefcase, Eye, EyeOff, ArrowLeft } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import type { UserRole } from '../types';
 
@@ -112,8 +112,12 @@ export default function Signup() {
       {/* Hero section */}
       <div style={styles.hero}>
         <div style={styles.logoChip}>
-          <Sparkles size={16} color="#fff" />
-          <span style={styles.logoText}>Intervuee</span>
+          <img
+            src="/roundora-logo.jpg"
+            alt="Roundora"
+            style={{ width: '28px', height: '28px', borderRadius: '6px', objectFit: 'cover' }}
+          />
+          <span style={styles.logoText}>Roundora</span>
         </div>
         <h1 style={styles.heroTitle}>Start Your Journey</h1>
         <p style={styles.heroSub}>Practice. Improve. Get Hired. 🚀</p>

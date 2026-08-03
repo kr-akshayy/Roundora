@@ -1,5 +1,5 @@
 import { Link, useNavigate } from 'react-router-dom';
-import { Mic2, LayoutDashboard, LogOut } from 'lucide-react';
+import { LayoutDashboard, LogOut } from 'lucide-react';
 import { useAuthStore } from '../lib/auth-store';
 import Avatar from './Avatar';
 
@@ -14,12 +14,22 @@ export default function Navbar() {
 
   return (
     <header className="sticky top-0 z-40 border-b border-slate-200 bg-white/95 backdrop-blur-md shadow-sm">
-      <nav className="max-w-6xl mx-auto flex items-center justify-between px-6 py-4">
-        <Link to="/" className="flex items-center gap-2 group">
-          <span className="flex items-center justify-center w-8 h-8 rounded-lg bg-brand-600 group-hover:bg-brand-700 transition-colors">
-            <Mic2 size={16} className="text-white" />
+      <nav className="max-w-6xl mx-auto flex items-center justify-between px-4 sm:px-6 py-3">
+        <Link to="/" className="flex items-center gap-2.5 group">
+          <img
+            src="/roundora-logo.jpg"
+            alt="Roundora"
+            style={{
+              width: '36px',
+              height: '36px',
+              borderRadius: '10px',
+              objectFit: 'cover',
+              boxShadow: '0 2px 8px rgba(99,102,241,0.25)',
+            }}
+          />
+          <span className="font-bold tracking-tight text-lg text-slate-900 group-hover:text-brand-600 transition-colors">
+            Roundora
           </span>
-          <span className="font-semibold tracking-tight text-lg text-slate-900">Intervuee</span>
         </Link>
 
         <div className="flex items-center gap-1">
