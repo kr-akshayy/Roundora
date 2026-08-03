@@ -1,0 +1,10 @@
+{
+  "buildCommand": "cd intervuee && npm install && npm run build",
+  "outputDirectory": "intervuee/dist",
+  "rewrites": [
+    {
+      "source": "/(.*)",
+      "destination": "/index.html"
+    }
+  ]
+}
