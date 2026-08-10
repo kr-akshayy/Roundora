@@ -107,11 +107,20 @@ export default function Login() {
     setOtpError(null);
     setOtpVerifying(true);
 
-    const { error: verifyErr } = await supabase.auth.verifyOtp({
+    let { error: verifyErr } = await supabase.auth.verifyOtp({
       email: otpEmail,
       token: otpCode,
       type: 'email',
     });
+
+    if (verifyErr) {
+      const res = await supabase.auth.verifyOtp({
+        email: otpEmail,
+        token: otpCode,
+        type: 'magiclink',
+      });
+      verifyErr = res.error;
+    }
 
     setOtpVerifying(false);
     if (verifyErr) {
