@@ -9,9 +9,9 @@ const rounds = [
 ];
 
 const stats = [
-  { value: '500+', label: 'verified interviewers' },
-  { value: '4.8/5', label: 'avg. session rating' },
-  { value: '24 hrs', label: 'avg. booking to session' },
+  { value: '1-on-1', label: 'personalized sessions' },
+  { value: 'Free', label: 'to sign up & browse' },
+  { value: 'Live', label: 'video calls built in' },
 ];
 
 export default function Landing() {

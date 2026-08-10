@@ -1,5 +1,5 @@
 import { useEffect } from 'react';
-import { Routes, Route } from 'react-router-dom';
+import { Routes, Route, useLocation } from 'react-router-dom';
 import Navbar from './components/Navbar';
 import ProtectedRoute from './components/ProtectedRoute';
 import Landing from './pages/Landing';
@@ -10,32 +10,25 @@ import MentorProfile from './pages/MentorProfile';
 import Dashboard from './pages/Dashboard';
 import BookingRoom from './pages/BookingRoom';
 import EditProfile from './pages/EditProfile';
+import NotFound from './pages/NotFound';
 import { useAuthStore } from './lib/auth-store';
+
+// Pages where the Navbar should be hidden (they have their own header)
+const HIDE_NAVBAR_PATHS = ['/login', '/signup'];
 
 export default function App() {
   const initialize = useAuthStore((s) => s.initialize);
+  const location = useLocation();
 
   useEffect(() => {
     initialize();
   }, [initialize]);
 
-  // Redirect to home page on browser refresh (F5 / Ctrl+R)
-  useEffect(() => {
-    const entries = performance.getEntriesByType('navigation') as PerformanceNavigationTiming[];
-    const isReload =
-      entries.length > 0
-        ? entries[0].type === 'reload'
-        : (performance as unknown as { navigation: { type: number } }).navigation?.type === 1;
-
-    if (isReload && window.location.pathname !== '/') {
-      window.location.replace('/');
-    }
-  }, []);
-
+  const showNavbar = !HIDE_NAVBAR_PATHS.includes(location.pathname);
 
   return (
     <div className="min-h-screen flex flex-col">
-      <Navbar />
+      {showNavbar && <Navbar />}
       <main className="flex-1">
         <Routes>
           <Route path="/" element={<Landing />} />
@@ -67,6 +60,8 @@ export default function App() {
               </ProtectedRoute>
             }
           />
+          {/* 404 catch-all */}
+          <Route path="*" element={<NotFound />} />
         </Routes>
       </main>
     </div>

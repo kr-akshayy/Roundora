@@ -39,6 +39,7 @@ export default function EditProfile() {
       full_name: fullName,
       headline: headline || null,
       bio: bio || null,
+      avatar_url: avatarUrl || null,
     };
 
     if (profile.role === 'mentor') {

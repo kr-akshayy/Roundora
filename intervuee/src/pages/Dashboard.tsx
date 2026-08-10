@@ -1,6 +1,6 @@
 import { useEffect, useState, FormEvent } from 'react';
 import { Link } from 'react-router-dom';
-import { Video, Calendar, Plus, Clock, CheckCircle2, MessageSquarePlus } from 'lucide-react';
+import { Video, Calendar, Plus, Clock, CheckCircle2, MessageSquarePlus, Trash2, X, Copy, ExternalLink } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { useAuthStore } from '../lib/auth-store';
 import StarRating from '../components/StarRating';
@@ -53,6 +53,7 @@ function StudentDashboard({ userId }: { userId: string }) {
   const [bookings, setBookings] = useState<Booking[]>([]);
   const [reviewedBookingIds, setReviewedBookingIds] = useState<Set<string>>(new Set());
   const [reviewingId, setReviewingId] = useState<string | null>(null);
+  const [cancellingId, setCancellingId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
 
   const fetchData = async () => {
@@ -74,12 +75,34 @@ function StudentDashboard({ userId }: { userId: string }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [userId]);
 
-  if (loading) return <div className="text-slate-500 text-sm">Loading your bookings...</div>;
+  const handleCancelBooking = async (booking: Booking) => {
+    setCancellingId(booking.id);
+    await supabase.from('bookings').update({ status: 'cancelled' }).eq('id', booking.id);
+    // Free up the slot
+    if (booking.slot_id) {
+      await supabase.from('slots').update({ is_booked: false }).eq('id', booking.slot_id);
+    }
+    setCancellingId(null);
+    fetchData();
+  };
+
+  if (loading) return (
+    <div className="space-y-3">
+      {[1, 2].map((i) => (
+        <div key={i} className="card p-4 animate-pulse">
+          <div className="h-4 bg-slate-200 rounded w-40 mb-2" />
+          <div className="h-3 bg-slate-100 rounded w-32" />
+        </div>
+      ))}
+    </div>
+  );
 
   if (bookings.length === 0) {
     return (
-      <div className="card p-8 text-center">
-        <p className="text-slate-500 text-sm mb-4">No sessions booked yet.</p>
+      <div className="card p-10 text-center">
+        <div className="text-4xl mb-3">📅</div>
+        <p className="text-slate-600 font-medium mb-1">Koi session book nahi hua abhi tak</p>
+        <p className="text-slate-400 text-sm mb-5">Kisi mentor ka slot book karo aur mock interview practice karo.</p>
         <Link to="/mentors" className="btn-primary inline-flex">
           Find an interviewer
         </Link>
@@ -91,33 +114,43 @@ function StudentDashboard({ userId }: { userId: string }) {
     <div className="space-y-3">
       {bookings.map((b) => (
         <div key={b.id} className="card p-4">
-          <div className="flex items-center justify-between gap-4 flex-wrap">
-            <div>
-              <div className="font-medium">{b.mentor?.full_name ?? 'Interviewer'}</div>
-              <div className="text-xs text-slate-500 flex items-center gap-1.5 mt-1">
-                <Clock size={12} />
+          <div className="flex items-start justify-between gap-3 flex-wrap">
+            <div className="flex-1 min-w-0">
+              <div className="font-medium truncate">{b.mentor?.full_name ?? 'Interviewer'}</div>
+              <div className="text-xs text-slate-500 flex items-center gap-1.5 mt-1 flex-wrap">
+                <Clock size={12} className="shrink-0" />
                 {b.slot ? new Date(b.slot.start_time).toLocaleString() : '—'}
                 {b.slot?.topic && (
-                  <span className={`ml-1 ${topicColor(b.slot.topic)}`}>· {topicLabel(b.slot.topic)}</span>
+                  <span className={`${topicColor(b.slot.topic)}`}>· {topicLabel(b.slot.topic)}</span>
                 )}
               </div>
             </div>
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2 flex-wrap">
               <span
-                className={`text-xs px-2.5 py-1 rounded-full border ${
+                className={`text-xs px-2.5 py-1 rounded-full border shrink-0 ${
                   b.status === 'confirmed'
                     ? 'text-emerald-700 bg-emerald-50 border-emerald-200'
                     : b.status === 'completed'
                     ? 'text-brand-700 bg-brand-50 border-brand-200'
-                    : 'text-slate-600 bg-slate-100 border-slate-200'
+                    : 'text-rose-600 bg-rose-50 border-rose-200'
                 }`}
               >
-                {b.status}
+                {b.status === 'confirmed' ? '✓ Confirmed' : b.status === 'completed' ? '✓ Completed' : '✕ Cancelled'}
               </span>
               {b.status === 'confirmed' && (
-                <Link to={`/room/${b.id}`} className="btn-primary !px-3 !py-2 text-xs">
-                  <Video size={13} /> Join call
-                </Link>
+                <>
+                  <Link to={`/room/${b.id}`} className="btn-primary !px-3 !py-2 text-xs">
+                    <Video size={13} /> Join call
+                  </Link>
+                  <button
+                    onClick={() => handleCancelBooking(b)}
+                    disabled={cancellingId === b.id}
+                    className="flex items-center gap-1 text-xs px-3 py-2 rounded-xl border border-rose-200 text-rose-600 bg-rose-50 hover:bg-rose-100 transition-colors disabled:opacity-50"
+                    title="Cancel booking"
+                  >
+                    <X size={13} /> {cancellingId === b.id ? '...' : 'Cancel'}
+                  </button>
+                </>
               )}
               {b.status === 'completed' && !reviewedBookingIds.has(b.id) && reviewingId !== b.id && (
                 <button
@@ -128,7 +161,9 @@ function StudentDashboard({ userId }: { userId: string }) {
                 </button>
               )}
               {b.status === 'completed' && reviewedBookingIds.has(b.id) && (
-                <span className="text-xs text-slate-500">Review submitted</span>
+                <span className="text-xs text-slate-400 flex items-center gap-1">
+                  <CheckCircle2 size={12} className="text-emerald-500" /> Reviewed
+                </span>
               )}
             </div>
           </div>
@@ -147,7 +182,7 @@ function StudentDashboard({ userId }: { userId: string }) {
   );
 }
 
-function MentorDashboard({ userId, expertise }: { userId: string; expertise: string[] }) {
+function MentorDashboard({ userId, mentorProfileId, expertise }: { userId: string; mentorProfileId: string; expertise: string[] }) {
   const [slots, setSlots] = useState<Slot[]>([]);
   const [bookings, setBookings] = useState<Booking[]>([]);
   const [loading, setLoading] = useState(true);
@@ -156,6 +191,17 @@ function MentorDashboard({ userId, expertise }: { userId: string; expertise: str
   const [duration, setDuration] = useState(45);
   const [topic, setTopic] = useState(expertise[0] ?? TOPICS[0].id);
   const [error, setError] = useState<string | null>(null);
+  const [deletingSlotId, setDeletingSlotId] = useState<string | null>(null);
+  const [copied, setCopied] = useState(false);
+
+  const profileUrl = `${window.location.origin}/mentors/${mentorProfileId}`;
+
+  const handleCopyLink = () => {
+    navigator.clipboard.writeText(profileUrl).then(() => {
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    });
+  };
 
   const availableTopics = TOPICS.filter((t) => expertise.length === 0 || expertise.includes(t.id));
 
@@ -203,140 +249,198 @@ function MentorDashboard({ userId, expertise }: { userId: string; expertise: str
     fetchData();
   };
 
+  const handleDeleteSlot = async (slotId: string) => {
+    setDeletingSlotId(slotId);
+    await supabase.from('slots').delete().eq('id', slotId);
+    setDeletingSlotId(null);
+    fetchData();
+  };
+
   const handleMarkCompleted = async (bookingId: string) => {
     await supabase.from('bookings').update({ status: 'completed' }).eq('id', bookingId);
     fetchData();
   };
 
-  if (loading) return <div className="text-slate-500 text-sm">Loading...</div>;
+  if (loading) return (
+    <div className="space-y-3">
+      {[1, 2].map((i) => (
+        <div key={i} className="card p-4 animate-pulse">
+          <div className="h-4 bg-slate-200 rounded w-40 mb-2" />
+          <div className="h-3 bg-slate-100 rounded w-32" />
+        </div>
+      ))}
+    </div>
+  );
 
   return (
-    <div className="grid md:grid-cols-2 gap-8">
-      <div>
-        <h2 className="font-semibold mb-3 flex items-center gap-1.5">
-          <Calendar size={16} /> Add availability
-        </h2>
-        {expertise.length === 0 && (
-          <div className="text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-xl px-3 py-2 mb-3">
-            Tip: add your interview topics in{' '}
-            <Link to="/profile/edit" className="underline">
-              Edit profile
-            </Link>{' '}
-            so students can find you by topic.
-          </div>
-        )}
-        <form onSubmit={handleAddSlot} className="card p-4 space-y-3 mb-6">
-          {error && <div className="text-xs text-rose-400">{error}</div>}
-          <div>
-            <label className="label-text">Topic / round type</label>
-            <select value={topic} onChange={(e) => setTopic(e.target.value)} className="input-field">
-              {availableTopics.map((t) => (
-                <option key={t.id} value={t.id}>
-                  {t.label}
-                </option>
-              ))}
-            </select>
-          </div>
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <label className="label-text">Date</label>
-              <input
-                type="date"
-                required
-                value={newDate}
-                onChange={(e) => setNewDate(e.target.value)}
-                className="input-field"
-              />
-            </div>
-            <div>
-              <label className="label-text">Time</label>
-              <input
-                type="time"
-                required
-                value={newTime}
-                onChange={(e) => setNewTime(e.target.value)}
-                className="input-field"
-              />
-            </div>
-          </div>
-          <div>
-            <label className="label-text">Duration (minutes)</label>
-            <select
-              value={duration}
-              onChange={(e) => setDuration(Number(e.target.value))}
-              className="input-field"
-            >
-              <option value={30}>30</option>
-              <option value={45}>45</option>
-              <option value={60}>60</option>
-            </select>
-          </div>
-          <button type="submit" className="btn-primary w-full">
-            <Plus size={15} /> Add slot
+    <div className="space-y-8">
+      {/* Profile Share Link */}
+      <div className="card p-4 flex items-center justify-between gap-3 flex-wrap bg-brand-50 border-brand-200">
+        <div>
+          <div className="text-sm font-semibold text-brand-800">Your public profile link</div>
+          <div className="text-xs text-brand-600 mt-0.5 truncate max-w-xs">{profileUrl}</div>
+        </div>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={handleCopyLink}
+            className="flex items-center gap-1.5 text-xs px-3 py-2 rounded-xl bg-brand-600 text-white hover:bg-brand-700 transition-colors font-medium"
+          >
+            <Copy size={13} />
+            {copied ? 'Copied!' : 'Copy Link'}
           </button>
-        </form>
-
-        <h3 className="text-sm font-medium text-slate-500 mb-2">Upcoming open slots</h3>
-        <div className="space-y-2">
-          {slots.filter((s) => !s.is_booked).length === 0 && (
-            <p className="text-sm text-slate-500">No open slots added yet.</p>
-          )}
-          {slots
-            .filter((s) => !s.is_booked)
-            .map((s) => (
-              <div key={s.id} className="card px-3 py-2.5 text-sm flex justify-between items-center">
-                <div>
-                  <div>{new Date(s.start_time).toLocaleString()}</div>
-                  {s.topic && <div className={`text-xs mt-0.5 ${topicColor(s.topic)}`}>{topicLabel(s.topic)}</div>}
-                </div>
-                <span className="text-slate-500 text-xs">{s.duration_minutes} min</span>
-              </div>
-            ))}
+          <a
+            href={profileUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="flex items-center gap-1 text-xs px-3 py-2 rounded-xl border border-brand-300 text-brand-700 hover:bg-brand-100 transition-colors"
+          >
+            <ExternalLink size={13} /> View
+          </a>
         </div>
       </div>
 
-      <div>
-        <h2 className="font-semibold mb-3">Booked sessions</h2>
-        {bookings.length === 0 ? (
-          <div className="card p-6 text-center text-sm text-slate-500">No bookings yet.</div>
-        ) : (
-          <div className="space-y-3">
-            {bookings.map((b) => (
-              <div key={b.id} className="card p-4 flex items-center justify-between gap-3 flex-wrap">
-                <div>
-                  <div className="font-medium">{b.student?.full_name ?? 'Student'}</div>
-                  <div className="text-xs text-slate-500 mt-1 flex items-center gap-1">
-                    {b.slot ? new Date(b.slot.start_time).toLocaleString() : '—'}
-                    {b.slot?.topic && (
-                      <span className={topicColor(b.slot.topic)}>· {topicLabel(b.slot.topic)}</span>
-                    )}
+      <div className="grid md:grid-cols-2 gap-8">
+        <div>
+          <h2 className="font-semibold mb-3 flex items-center gap-1.5">
+            <Calendar size={16} /> Add availability
+          </h2>
+          {expertise.length === 0 && (
+            <div className="text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-xl px-3 py-2 mb-3">
+              Tip: add your interview topics in{' '}
+              <Link to="/profile/edit" className="underline">
+                Edit profile
+              </Link>{' '}
+              so students can find you by topic.
+            </div>
+          )}
+          <form onSubmit={handleAddSlot} className="card p-4 space-y-3 mb-6">
+            {error && <div className="text-xs text-rose-400">{error}</div>}
+            <div>
+              <label className="label-text">Topic / round type</label>
+              <select value={topic} onChange={(e) => setTopic(e.target.value)} className="input-field">
+                {availableTopics.map((t) => (
+                  <option key={t.id} value={t.id}>
+                    {t.label}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="label-text">Date</label>
+                <input
+                  type="date"
+                  required
+                  value={newDate}
+                  onChange={(e) => setNewDate(e.target.value)}
+                  className="input-field"
+                />
+              </div>
+              <div>
+                <label className="label-text">Time</label>
+                <input
+                  type="time"
+                  required
+                  value={newTime}
+                  onChange={(e) => setNewTime(e.target.value)}
+                  className="input-field"
+                />
+              </div>
+            </div>
+            <div>
+              <label className="label-text">Duration (minutes)</label>
+              <select
+                value={duration}
+                onChange={(e) => setDuration(Number(e.target.value))}
+                className="input-field"
+              >
+                <option value={30}>30</option>
+                <option value={45}>45</option>
+                <option value={60}>60</option>
+              </select>
+            </div>
+            <button type="submit" className="btn-primary w-full">
+              <Plus size={15} /> Add slot
+            </button>
+          </form>
+
+          <h3 className="text-sm font-medium text-slate-500 mb-2">Upcoming open slots</h3>
+          <div className="space-y-2">
+            {slots.filter((s) => !s.is_booked).length === 0 && (
+              <p className="text-sm text-slate-400 bg-slate-50 border border-slate-200 rounded-xl p-4 text-center">
+                No open slots added yet. Add a slot above to get booked!
+              </p>
+            )}
+            {slots
+              .filter((s) => !s.is_booked)
+              .map((s) => (
+                <div key={s.id} className="card px-3 py-2.5 text-sm flex justify-between items-center gap-2">
+                  <div className="flex-1 min-w-0">
+                    <div className="font-medium">{new Date(s.start_time).toLocaleString()}</div>
+                    {s.topic && <div className={`text-xs mt-0.5 ${topicColor(s.topic)}`}>{topicLabel(s.topic)}</div>}
+                  </div>
+                  <div className="flex items-center gap-2 shrink-0">
+                    <span className="text-slate-400 text-xs">{s.duration_minutes} min</span>
+                    <button
+                      onClick={() => handleDeleteSlot(s.id)}
+                      disabled={deletingSlotId === s.id}
+                      className="p-1.5 rounded-lg text-rose-400 hover:bg-rose-50 hover:text-rose-600 transition-colors disabled:opacity-40"
+                      title="Delete slot"
+                    >
+                      <Trash2 size={14} />
+                    </button>
                   </div>
                 </div>
-                <div className="flex items-center gap-2">
-                  {b.status === 'confirmed' && (
-                    <>
-                      <Link to={`/room/${b.id}`} className="btn-primary !px-3 !py-2 text-xs">
-                        <Video size={13} /> Join call
-                      </Link>
-                      <button
-                        onClick={() => handleMarkCompleted(b.id)}
-                        className="btn-secondary !px-3 !py-2 text-xs"
-                        title="Mark this session as completed"
-                      >
-                        <CheckCircle2 size={13} /> Mark done
-                      </button>
-                    </>
-                  )}
-                  {b.status === 'completed' && (
-                    <span className="badge-brand">
-                      Completed
-                    </span>
-                  )}
-                </div>
-              </div>
-            ))}
+              ))}
           </div>
-        )}
+        </div>
+
+        <div>
+          <h2 className="font-semibold mb-3">Booked sessions</h2>
+          {bookings.length === 0 ? (
+            <div className="card p-6 text-center text-sm text-slate-500">No bookings yet.</div>
+          ) : (
+            <div className="space-y-3">
+              {bookings.map((b) => (
+                <div key={b.id} className="card p-4">
+                  <div className="flex items-start justify-between gap-3 flex-wrap">
+                    <div className="flex-1 min-w-0">
+                      <div className="font-medium truncate">{b.student?.full_name ?? 'Student'}</div>
+                      <div className="text-xs text-slate-500 mt-1 flex items-center gap-1 flex-wrap">
+                        {b.slot ? new Date(b.slot.start_time).toLocaleString() : '—'}
+                        {b.slot?.topic && (
+                          <span className={topicColor(b.slot.topic)}>· {topicLabel(b.slot.topic)}</span>
+                        )}
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-2 flex-wrap">
+                      {b.status === 'confirmed' && (
+                        <>
+                          <Link to={`/room/${b.id}`} className="btn-primary !px-3 !py-2 text-xs">
+                            <Video size={13} /> Join call
+                          </Link>
+                          <button
+                            onClick={() => handleMarkCompleted(b.id)}
+                            className="btn-secondary !px-3 !py-2 text-xs"
+                            title="Mark this session as completed"
+                          >
+                            <CheckCircle2 size={13} /> Mark done
+                          </button>
+                        </>
+                      )}
+                      {b.status === 'completed' && (
+                        <span className="badge-brand">Completed</span>
+                      )}
+                      {b.status === 'cancelled' && (
+                        <span className="text-xs px-2.5 py-1 rounded-full border text-rose-600 bg-rose-50 border-rose-200">Cancelled</span>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
       </div>
     </div>
   );
@@ -348,16 +452,21 @@ export default function Dashboard() {
 
   return (
     <div className="max-w-5xl mx-auto px-4 sm:px-6 py-6 sm:py-12">
-      <h1 className="text-2xl font-bold mb-1">
-        {profile?.role === 'mentor' ? 'Your sessions' : 'Your bookings'}
-      </h1>
+      <div className="flex items-center justify-between mb-1 gap-3 flex-wrap">
+        <h1 className="text-2xl font-bold">
+          {profile?.role === 'mentor' ? 'Your sessions' : 'Your bookings'}
+        </h1>
+        <Link to="/profile/edit" className="btn-secondary text-sm !px-3 !py-2">
+          Edit profile
+        </Link>
+      </div>
       <p className="text-slate-500 text-sm mb-8">
         {profile?.role === 'mentor'
           ? 'Manage your availability and upcoming interviews.'
           : 'Track and join your upcoming mock interviews.'}
       </p>
       {profile?.role === 'mentor' ? (
-        <MentorDashboard userId={session.user.id} expertise={profile.expertise ?? []} />
+        <MentorDashboard userId={session.user.id} mentorProfileId={session.user.id} expertise={profile.expertise ?? []} />
       ) : (
         <StudentDashboard userId={session.user.id} />
       )}
