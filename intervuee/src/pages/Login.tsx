@@ -10,21 +10,55 @@ export default function Login() {
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const [showResend, setShowResend] = useState(false);
+  const [resendLoading, setResendLoading] = useState(false);
+  const [resendStatus, setResendStatus] = useState<string | null>(null);
   const navigate = useNavigate();
   const initialize = useAuthStore((s) => s.initialize);
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
     setError(null);
+    setShowResend(false);
+    setResendStatus(null);
     setLoading(true);
-    const { error } = await supabase.auth.signInWithPassword({ email, password });
+
+    const { error: signInErr } = await supabase.auth.signInWithPassword({ email, password });
     setLoading(false);
-    if (error) {
-      setError(error.message);
+    if (signInErr) {
+      const isUnconfirmed =
+        signInErr.message?.toLowerCase().includes('email not confirmed') ||
+        signInErr.message?.toLowerCase().includes('not confirmed');
+
+      if (isUnconfirmed) {
+        setError('📧 Email confirmed नहीं हुआ है। कृपया अपना email inbox/spam folder चेक करें, या नीचे button दबाकर नया confirmation link मंगवाएं।');
+        setShowResend(true);
+      } else {
+        setError(signInErr.message);
+      }
       return;
     }
     await initialize();
     navigate('/dashboard');
+  };
+
+  const handleResendConfirmation = async () => {
+    if (!email) {
+      setError('Kripya pehle email ID enter karein.');
+      return;
+    }
+    setResendLoading(true);
+    setResendStatus(null);
+    const { error: resendErr } = await supabase.auth.resend({
+      type: 'signup',
+      email,
+    });
+    setResendLoading(false);
+    if (resendErr) {
+      setResendStatus(`❌ Error: ${resendErr.message}`);
+    } else {
+      setResendStatus('✅ Confirmation link dubara aapki email par bhej diya gaya hai! Inbox check karein.');
+    }
   };
 
   return (
@@ -61,6 +95,40 @@ export default function Login() {
             <div style={styles.errorBox}>
               <AlertCircle size={15} style={{ flexShrink: 0 }} />
               <span>{error}</span>
+            </div>
+          )}
+
+          {showResend && (
+            <button
+              type="button"
+              onClick={handleResendConfirmation}
+              disabled={resendLoading}
+              style={{
+                backgroundColor: '#eef2ff',
+                color: '#4f46e5',
+                border: '1px solid #c7d2fe',
+                padding: '10px 14px',
+                borderRadius: '12px',
+                fontSize: '13px',
+                fontWeight: '600',
+                cursor: resendLoading ? 'not-allowed' : 'pointer',
+                opacity: resendLoading ? 0.7 : 1,
+              }}
+            >
+              {resendLoading ? 'Sending Link...' : '✉️ Resend Confirmation Email'}
+            </button>
+          )}
+
+          {resendStatus && (
+            <div style={{
+              backgroundColor: resendStatus.startsWith('✅') ? '#f0fdf4' : '#fff1f2',
+              color: resendStatus.startsWith('✅') ? '#166534' : '#be123c',
+              border: `1px solid ${resendStatus.startsWith('✅') ? '#bbf7d0' : '#fecdd3'}`,
+              borderRadius: '12px',
+              padding: '10px 12px',
+              fontSize: '13px',
+            }}>
+              {resendStatus}
             </div>
           )}
 

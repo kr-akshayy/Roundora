@@ -27,6 +27,8 @@ export default function Signup() {
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [done, setDone] = useState(false);
+  const [resendLoading, setResendLoading] = useState(false);
+  const [resendStatus, setResendStatus] = useState<string | null>(null);
   const navigate = useNavigate();
 
   const handleSubmit = async (e: FormEvent) => {
@@ -37,17 +39,26 @@ export default function Signup() {
     const { data, error: signUpError } = await supabase.auth.signUp({
       email,
       password,
-      options: { data: { full_name: fullName, role } },
+      options: {
+        data: { full_name: fullName, role },
+        emailRedirectTo: `${window.location.origin}/login`,
+      },
     });
 
     if (signUpError) {
       console.error('[Signup] signUpError:', signUpError);
       const isRateLimit =
         signUpError.message?.toLowerCase().includes('rate limit') ||
-        signUpError.message?.toLowerCase().includes('email') ||
         (signUpError as { code?: string }).code === 'over_email_send_rate_limit';
+      const isUnconfirmed =
+        signUpError.message?.toLowerCase().includes('email not confirmed') ||
+        signUpError.message?.toLowerCase().includes('not confirmed');
+
       if (isRateLimit) {
         setError('⏳ बहुत ज़्यादा signup attempts हो गए। 5-10 मिनट बाद try करें, या एक अलग email use करें।');
+      } else if (isUnconfirmed) {
+        setError('📧 Email confirm नहीं हुआ है। आपकी email पर verification link भेजा गया है। Link confirm करें, या नीचे resend करें।');
+        setDone(true);
       } else {
         setError(getErrorMessage(signUpError));
       }
@@ -83,6 +94,22 @@ export default function Signup() {
     }
   };
 
+  const handleResendConfirmation = async () => {
+    if (!email) return;
+    setResendLoading(true);
+    setResendStatus(null);
+    const { error: resendErr } = await supabase.auth.resend({
+      type: 'signup',
+      email,
+    });
+    setResendLoading(false);
+    if (resendErr) {
+      setResendStatus(`❌ Resend failed: ${getErrorMessage(resendErr)}`);
+    } else {
+      setResendStatus('✅ Naya confirmation link aapki email par bhej diya gaya hai! Inbox check karein.');
+    }
+  };
+
   if (done) {
     return (
       <div style={styles.root}>
@@ -93,7 +120,42 @@ export default function Signup() {
           <p style={styles.doneSub}>
             We sent a confirmation link to <strong>{email}</strong>. Confirm it, then log in.
           </p>
-          <Link to="/login" style={styles.ctaBtn}>Go to Login</Link>
+          {resendStatus && (
+            <p style={{
+              color: resendStatus.startsWith('✅') ? '#4ade80' : '#f87171',
+              fontSize: '13px',
+              marginBottom: '16px',
+              padding: '8px 12px',
+              backgroundColor: 'rgba(255,255,255,0.1)',
+              borderRadius: '8px',
+            }}>
+              {resendStatus}
+            </p>
+          )}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', width: '100%', maxWidth: '320px', margin: '0 auto' }}>
+            <Link to="/login" style={styles.ctaBtn}>Go to Login</Link>
+            <button
+              type="button"
+              onClick={handleResendConfirmation}
+              disabled={resendLoading}
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                padding: '12px',
+                borderRadius: '12px',
+                backgroundColor: 'rgba(255,255,255,0.15)',
+                color: '#fff',
+                border: '1px solid rgba(255,255,255,0.25)',
+                fontSize: '14px',
+                fontWeight: '600',
+                cursor: resendLoading ? 'not-allowed' : 'pointer',
+                opacity: resendLoading ? 0.7 : 1,
+              }}
+            >
+              {resendLoading ? 'Sending link...' : 'Resend Confirmation Email'}
+            </button>
+          </div>
         </div>
       </div>
     );

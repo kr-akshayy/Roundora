@@ -347,7 +347,7 @@ export default function Dashboard() {
   if (!session) return null;
 
   return (
-    <div className="max-w-5xl mx-auto px-6 py-12">
+    <div className="max-w-5xl mx-auto px-4 sm:px-6 py-6 sm:py-12">
       <h1 className="text-2xl font-bold mb-1">
         {profile?.role === 'mentor' ? 'Your sessions' : 'Your bookings'}
       </h1>

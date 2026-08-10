@@ -55,7 +55,7 @@ export default function Mentors() {
   });
 
   return (
-    <div className="max-w-6xl mx-auto px-6 py-12">
+    <div className="max-w-6xl mx-auto px-4 sm:px-6 py-6 sm:py-12">
       <h1 className="text-2xl font-bold mb-2">Find an interviewer</h1>
       <p className="text-slate-500 mb-6 text-sm">Verified engineers, ready to run your mock round.</p>
 
