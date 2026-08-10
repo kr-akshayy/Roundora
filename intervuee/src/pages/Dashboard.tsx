@@ -1,6 +1,6 @@
 import { useEffect, useState, FormEvent } from 'react';
 import { Link } from 'react-router-dom';
-import { Video, Calendar, Plus, Clock, CheckCircle2, MessageSquarePlus, Trash2, X, Copy, ExternalLink } from 'lucide-react';
+import { Video, Calendar, Plus, Clock, CheckCircle2, MessageSquarePlus, Trash2, X, Copy, ExternalLink, Bell, CalendarPlus } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { useAuthStore } from '../lib/auth-store';
 import StarRating from '../components/StarRating';
@@ -47,6 +47,57 @@ function ReviewForm({ booking, onDone }: { booking: Booking; onDone: () => void 
       </button>
     </form>
   );
+}
+
+// Generate ICS calendar file content for a booking
+function generateICS(title: string, startTime: Date, durationMinutes: number, description: string): string {
+  const pad = (n: number) => String(n).padStart(2, '0');
+  const fmt = (d: Date) =>
+    `${d.getUTCFullYear()}${pad(d.getUTCMonth() + 1)}${pad(d.getUTCDate())}T${pad(d.getUTCHours())}${pad(d.getUTCMinutes())}${pad(d.getUTCSeconds())}Z`;
+  const endTime = new Date(startTime.getTime() + durationMinutes * 60 * 1000);
+  const uid = `roundora-${Date.now()}@roundora.in`;
+  return [
+    'BEGIN:VCALENDAR',
+    'VERSION:2.0',
+    'PRODID:-//Roundora//Mock Interview//EN',
+    'BEGIN:VEVENT',
+    `UID:${uid}`,
+    `DTSTAMP:${fmt(new Date())}`,
+    `DTSTART:${fmt(startTime)}`,
+    `DTEND:${fmt(endTime)}`,
+    `SUMMARY:${title}`,
+    `DESCRIPTION:${description}`,
+    'BEGIN:VALARM',
+    'TRIGGER:-PT60M',
+    'ACTION:DISPLAY',
+    'DESCRIPTION:Your mock interview starts in 1 hour!',
+    'END:VALARM',
+    'BEGIN:VALARM',
+    'TRIGGER:-PT15M',
+    'ACTION:DISPLAY',
+    'DESCRIPTION:Your mock interview starts in 15 minutes!',
+    'END:VALARM',
+    'END:VEVENT',
+    'END:VCALENDAR',
+  ].join('\r\n');
+}
+
+function downloadICS(booking: Booking) {
+  if (!booking.slot) return;
+  const mentorName = booking.mentor?.full_name ?? 'Mentor';
+  const startTime = new Date(booking.slot.start_time);
+  const duration = booking.slot.duration_minutes ?? 45;
+  const topic = booking.slot.topic ? ` — ${booking.slot.topic}` : '';
+  const title = `Mock Interview with ${mentorName}${topic}`;
+  const desc = `Roundora mock interview session with ${mentorName}. Join at: ${window.location.origin}/room/${booking.id}`;
+  const ics = generateICS(title, startTime, duration, desc);
+  const blob = new Blob([ics], { type: 'text/calendar;charset=utf-8' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `roundora-session-${booking.id.slice(0, 8)}.ics`;
+  a.click();
+  URL.revokeObjectURL(url);
 }
 
 function StudentDashboard({ userId }: { userId: string }) {
@@ -110,8 +161,42 @@ function StudentDashboard({ userId }: { userId: string }) {
     );
   }
 
+  // Find the next upcoming confirmed session
+  const upcomingSessions = bookings
+    .filter((b) => b.status === 'confirmed' && b.slot)
+    .sort((a, b) => new Date(a.slot!.start_time).getTime() - new Date(b.slot!.start_time).getTime());
+
+  const nextSession = upcomingSessions[0];
+  const msToNext = nextSession?.slot ? new Date(nextSession.slot.start_time).getTime() - Date.now() : null;
+  const hoursToNext = msToNext ? msToNext / 3600000 : null;
+
   return (
     <div className="space-y-3">
+      {/* Reminder Banner */}
+      {nextSession && hoursToNext !== null && hoursToNext > 0 && hoursToNext <= 24 && (
+        <div className={`rounded-2xl border p-4 flex items-start gap-3 ${
+          hoursToNext <= 1
+            ? 'bg-rose-50 border-rose-200'
+            : 'bg-amber-50 border-amber-200'
+        }`}>
+          <Bell size={18} className={hoursToNext <= 1 ? 'text-rose-500 shrink-0 mt-0.5' : 'text-amber-500 shrink-0 mt-0.5'} />
+          <div className="flex-1 min-w-0">
+            <div className={`font-semibold text-sm ${hoursToNext <= 1 ? 'text-rose-700' : 'text-amber-700'}`}>
+              {hoursToNext <= 1
+                ? `🚨 Session starts in ${Math.round(msToNext! / 60000)} minutes!`
+                : `⏰ Session in ${Math.round(hoursToNext)} hour${Math.round(hoursToNext) !== 1 ? 's' : ''}!`}
+            </div>
+            <div className={`text-xs mt-0.5 ${hoursToNext <= 1 ? 'text-rose-600' : 'text-amber-600'}`}>
+              {nextSession.mentor?.full_name} ·{' '}
+              {new Date(nextSession.slot!.start_time).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', hour12: true })}
+            </div>
+          </div>
+          <Link to={`/room/${nextSession.id}`} className="btn-primary !px-3 !py-2 text-xs shrink-0">
+            <Video size={12} /> Join Now
+          </Link>
+        </div>
+      )}
+
       {bookings.map((b) => (
         <div key={b.id} className="card p-4">
           <div className="flex items-start justify-between gap-3 flex-wrap">
@@ -119,7 +204,10 @@ function StudentDashboard({ userId }: { userId: string }) {
               <div className="font-medium truncate">{b.mentor?.full_name ?? 'Interviewer'}</div>
               <div className="text-xs text-slate-500 flex items-center gap-1.5 mt-1 flex-wrap">
                 <Clock size={12} className="shrink-0" />
-                {b.slot ? new Date(b.slot.start_time).toLocaleString() : '—'}
+                {b.slot ? new Date(b.slot.start_time).toLocaleString('en-IN', {
+                  day: 'numeric', month: 'short', year: 'numeric',
+                  hour: '2-digit', minute: '2-digit', hour12: true
+                }) : '—'}
                 {b.slot?.topic && (
                   <span className={`${topicColor(b.slot.topic)}`}>· {topicLabel(b.slot.topic)}</span>
                 )}
@@ -142,6 +230,13 @@ function StudentDashboard({ userId }: { userId: string }) {
                   <Link to={`/room/${b.id}`} className="btn-primary !px-3 !py-2 text-xs">
                     <Video size={13} /> Join call
                   </Link>
+                  <button
+                    onClick={() => downloadICS(b)}
+                    className="flex items-center gap-1 text-xs px-3 py-2 rounded-xl border border-brand-200 text-brand-700 bg-brand-50 hover:bg-brand-100 transition-colors"
+                    title="Add to calendar (Google/iPhone) for reminders"
+                  >
+                    <CalendarPlus size={13} /> Add to Calendar
+                  </button>
                   <button
                     onClick={() => handleCancelBooking(b)}
                     disabled={cancellingId === b.id}
@@ -180,6 +275,41 @@ function StudentDashboard({ userId }: { userId: string }) {
       ))}
     </div>
   );
+}
+
+// Quick preset timings for mentor to quickly pick slots
+const QUICK_PRESETS = [
+  { label: 'Today 9 AM', getDateTime: () => { const d = new Date(); d.setHours(9,0,0,0); return d; } },
+  { label: 'Today 6 PM', getDateTime: () => { const d = new Date(); d.setHours(18,0,0,0); return d; } },
+  { label: 'Today 8 PM', getDateTime: () => { const d = new Date(); d.setHours(20,0,0,0); return d; } },
+  { label: 'Tomorrow 10 AM', getDateTime: () => { const d = new Date(); d.setDate(d.getDate()+1); d.setHours(10,0,0,0); return d; } },
+  { label: 'Tomorrow 5 PM', getDateTime: () => { const d = new Date(); d.setDate(d.getDate()+1); d.setHours(17,0,0,0); return d; } },
+  { label: 'Tomorrow 8 PM', getDateTime: () => { const d = new Date(); d.setDate(d.getDate()+1); d.setHours(20,0,0,0); return d; } },
+  { label: 'This Sat 11 AM', getDateTime: () => { const d = new Date(); const day = d.getDay(); const diff = (6 - day + 7) % 7 || 7; d.setDate(d.getDate()+diff); d.setHours(11,0,0,0); return d; } },
+  { label: 'This Sun 10 AM', getDateTime: () => { const d = new Date(); const day = d.getDay(); const diff = (7 - day) % 7 || 7; d.setDate(d.getDate()+diff); d.setHours(10,0,0,0); return d; } },
+];
+
+function toDateInputValue(d: Date) {
+  const yyyy = d.getFullYear();
+  const mm = String(d.getMonth() + 1).padStart(2, '0');
+  const dd = String(d.getDate()).padStart(2, '0');
+  return `${yyyy}-${mm}-${dd}`;
+}
+
+function toTimeInputValue(d: Date) {
+  const hh = String(d.getHours()).padStart(2, '0');
+  const min = String(d.getMinutes()).padStart(2, '0');
+  return `${hh}:${min}`;
+}
+
+function getDayLabel(dateStr: string) {
+  const date = new Date(dateStr);
+  const today = new Date();
+  const tomorrow = new Date();
+  tomorrow.setDate(today.getDate() + 1);
+  if (date.toDateString() === today.toDateString()) return 'Today';
+  if (date.toDateString() === tomorrow.toDateString()) return 'Tomorrow';
+  return date.toLocaleDateString('en-IN', { weekday: 'long' });
 }
 
 function MentorDashboard({ userId, mentorProfileId, expertise }: { userId: string; mentorProfileId: string; expertise: string[] }) {
@@ -315,6 +445,38 @@ function MentorDashboard({ userId, mentorProfileId, expertise }: { userId: strin
           )}
           <form onSubmit={handleAddSlot} className="card p-4 space-y-3 mb-6">
             {error && <div className="text-xs text-rose-400">{error}</div>}
+
+            {/* Quick Presets */}
+            <div>
+              <label className="label-text">⚡ Quick select time</label>
+              <div className="flex flex-wrap gap-2">
+                {QUICK_PRESETS.map((p) => {
+                  const d = p.getDateTime();
+                  const isPast = d < new Date();
+                  return (
+                    <button
+                      key={p.label}
+                      type="button"
+                      disabled={isPast}
+                      onClick={() => {
+                        setNewDate(toDateInputValue(d));
+                        setNewTime(toTimeInputValue(d));
+                      }}
+                      className={`text-xs px-3 py-1.5 rounded-full border font-medium transition-all ${
+                        newDate === toDateInputValue(d) && newTime === toTimeInputValue(d)
+                          ? 'bg-brand-50 border-brand-500 text-brand-700'
+                          : isPast
+                          ? 'opacity-30 cursor-not-allowed bg-slate-50 border-slate-200 text-slate-400'
+                          : 'bg-white border-slate-200 text-slate-600 hover:border-brand-400 hover:text-brand-600'
+                      }`}
+                    >
+                      {p.label}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
             <div>
               <label className="label-text">Topic / round type</label>
               <select value={topic} onChange={(e) => setTopic(e.target.value)} className="input-field">
@@ -354,44 +516,59 @@ function MentorDashboard({ userId, mentorProfileId, expertise }: { userId: strin
                 onChange={(e) => setDuration(Number(e.target.value))}
                 className="input-field"
               >
-                <option value={30}>30</option>
-                <option value={45}>45</option>
-                <option value={60}>60</option>
+                <option value={30}>30 min</option>
+                <option value={45}>45 min</option>
+                <option value={60}>60 min (1 hour)</option>
               </select>
             </div>
             <button type="submit" className="btn-primary w-full">
-              <Plus size={15} /> Add slot
+              <Plus size={15} /> Add Slot
             </button>
           </form>
 
           <h3 className="text-sm font-medium text-slate-500 mb-2">Upcoming open slots</h3>
           <div className="space-y-2">
             {slots.filter((s) => !s.is_booked).length === 0 && (
-              <p className="text-sm text-slate-400 bg-slate-50 border border-slate-200 rounded-xl p-4 text-center">
-                No open slots added yet. Add a slot above to get booked!
-              </p>
+              <div className="text-sm text-slate-400 bg-slate-50 border border-slate-200 rounded-xl p-5 text-center">
+                <div className="text-2xl mb-2">📅</div>
+                <div className="font-medium text-slate-600 mb-1">No open slots yet</div>
+                <div className="text-xs">Use the quick presets above to add a slot in seconds!</div>
+              </div>
             )}
             {slots
               .filter((s) => !s.is_booked)
-              .map((s) => (
-                <div key={s.id} className="card px-3 py-2.5 text-sm flex justify-between items-center gap-2">
-                  <div className="flex-1 min-w-0">
-                    <div className="font-medium">{new Date(s.start_time).toLocaleString()}</div>
-                    {s.topic && <div className={`text-xs mt-0.5 ${topicColor(s.topic)}`}>{topicLabel(s.topic)}</div>}
+              .map((s) => {
+                const slotDate = new Date(s.start_time);
+                const dayLabel = getDayLabel(s.start_time);
+                const timeStr = slotDate.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', hour12: true });
+                const hour = slotDate.getHours();
+                const timeOfDay = hour < 12 ? '🌅 Morning' : hour < 17 ? '☀️ Afternoon' : '🌙 Evening';
+                return (
+                  <div key={s.id} className="card px-4 py-3 text-sm flex justify-between items-center gap-2">
+                    <div className="flex-1 min-w-0">
+                      <div className="font-semibold text-slate-800 flex items-center gap-2 flex-wrap">
+                        {dayLabel}
+                        <span className="text-xs font-normal text-slate-400 bg-slate-100 px-2 py-0.5 rounded-full">{timeOfDay}</span>
+                      </div>
+                      <div className="text-xs text-slate-500 mt-1 flex items-center gap-2 flex-wrap">
+                        <span className="flex items-center gap-1"><Clock size={11}/> {timeStr}</span>
+                        <span>· {s.duration_minutes} min</span>
+                        {s.topic && <span className={topicColor(s.topic)}>{topicLabel(s.topic)}</span>}
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-2 shrink-0">
+                      <button
+                        onClick={() => handleDeleteSlot(s.id)}
+                        disabled={deletingSlotId === s.id}
+                        className="p-1.5 rounded-lg text-rose-400 hover:bg-rose-50 hover:text-rose-600 transition-colors disabled:opacity-40"
+                        title="Delete slot"
+                      >
+                        <Trash2 size={14} />
+                      </button>
+                    </div>
                   </div>
-                  <div className="flex items-center gap-2 shrink-0">
-                    <span className="text-slate-400 text-xs">{s.duration_minutes} min</span>
-                    <button
-                      onClick={() => handleDeleteSlot(s.id)}
-                      disabled={deletingSlotId === s.id}
-                      className="p-1.5 rounded-lg text-rose-400 hover:bg-rose-50 hover:text-rose-600 transition-colors disabled:opacity-40"
-                      title="Delete slot"
-                    >
-                      <Trash2 size={14} />
-                    </button>
-                  </div>
-                </div>
-              ))}
+                );
+              })}
           </div>
         </div>
 

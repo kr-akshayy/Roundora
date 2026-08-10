@@ -1,12 +1,132 @@
 import { useEffect, useState } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
-import { Briefcase, IndianRupee, Calendar, CheckCircle2, AlertCircle } from 'lucide-react';
+import {
+  Briefcase, IndianRupee, Calendar, CheckCircle2, AlertCircle,
+  Clock, ArrowLeft, Star, Zap, Users
+} from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { useAuthStore } from '../lib/auth-store';
 import Avatar from '../components/Avatar';
 import StarRating from '../components/StarRating';
 import { topicLabel, topicColor } from '../lib/topics';
 import type { Profile, Slot, Review } from '../types';
+
+function SlotCard({
+  slot,
+  onBook,
+  isBooking,
+  disabled,
+}: {
+  slot: Slot;
+  onBook: () => void;
+  isBooking: boolean;
+  disabled: boolean;
+}) {
+  const date = new Date(slot.start_time);
+  const now = new Date();
+
+  // "Today", "Tomorrow", or day name
+  const dayLabel = (() => {
+    const diffDays = Math.floor((date.setHours(0,0,0,0) - new Date().setHours(0,0,0,0)) / 86400000);
+    const d = new Date(slot.start_time);
+    if (diffDays === 0) return 'Today';
+    if (diffDays === 1) return 'Tomorrow';
+    return d.toLocaleDateString('en-IN', { weekday: 'long' });
+  })();
+
+  const timeStr = new Date(slot.start_time).toLocaleTimeString('en-IN', {
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: true,
+  });
+
+  const dateStr = new Date(slot.start_time).toLocaleDateString('en-IN', {
+    day: 'numeric',
+    month: 'short',
+  });
+
+  // Time of day tag
+  const hour = new Date(slot.start_time).getHours();
+  const timeOfDay = hour < 12 ? '🌅 Morning' : hour < 17 ? '☀️ Afternoon' : '🌙 Evening';
+
+  return (
+    <button
+      onClick={onBook}
+      disabled={disabled || isBooking}
+      style={{
+        width: '100%',
+        textAlign: 'left',
+        padding: '14px 16px',
+        borderRadius: '16px',
+        border: `2px solid ${isBooking ? '#4f46e5' : '#e2e8f0'}`,
+        backgroundColor: isBooking ? '#eef2ff' : '#fff',
+        cursor: disabled ? 'not-allowed' : 'pointer',
+        opacity: disabled ? 0.6 : 1,
+        transition: 'all 0.15s',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        gap: '12px',
+      }}
+      onMouseEnter={(e) => {
+        if (!disabled) {
+          (e.currentTarget as HTMLButtonElement).style.borderColor = '#4f46e5';
+          (e.currentTarget as HTMLButtonElement).style.backgroundColor = '#f8faff';
+          (e.currentTarget as HTMLButtonElement).style.transform = 'translateY(-1px)';
+          (e.currentTarget as HTMLButtonElement).style.boxShadow = '0 4px 16px rgba(79,70,229,0.12)';
+        }
+      }}
+      onMouseLeave={(e) => {
+        if (!disabled && !isBooking) {
+          (e.currentTarget as HTMLButtonElement).style.borderColor = '#e2e8f0';
+          (e.currentTarget as HTMLButtonElement).style.backgroundColor = '#fff';
+          (e.currentTarget as HTMLButtonElement).style.transform = 'none';
+          (e.currentTarget as HTMLButtonElement).style.boxShadow = 'none';
+        }
+      }}
+    >
+      <div style={{ flex: 1 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px', flexWrap: 'wrap' }}>
+          <span style={{ fontWeight: '700', fontSize: '14px', color: '#0f172a' }}>
+            {dayLabel}, {dateStr}
+          </span>
+          <span style={{
+            fontSize: '11px',
+            padding: '2px 8px',
+            borderRadius: '20px',
+            backgroundColor: '#f1f5f9',
+            color: '#64748b',
+          }}>
+            {timeOfDay}
+          </span>
+        </div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }}>
+          <span style={{ fontSize: '13px', color: '#475569', display: 'flex', alignItems: 'center', gap: '4px' }}>
+            <Clock size={13} /> {timeStr}
+          </span>
+          <span style={{ fontSize: '13px', color: '#94a3b8' }}>· {slot.duration_minutes} min</span>
+          {slot.topic && (
+            <span className={`text-xs font-medium ${topicColor(slot.topic)}`}>
+              {topicLabel(slot.topic)}
+            </span>
+          )}
+        </div>
+      </div>
+      <div style={{
+        flexShrink: 0,
+        padding: '8px 16px',
+        borderRadius: '10px',
+        background: isBooking ? '#c7d2fe' : 'linear-gradient(135deg, #4f46e5, #7c3aed)',
+        color: '#fff',
+        fontSize: '13px',
+        fontWeight: '600',
+        whiteSpace: 'nowrap',
+      }}>
+        {isBooking ? 'Booking...' : 'Book →'}
+      </div>
+    </button>
+  );
+}
 
 export default function MentorProfile() {
   const { id } = useParams<{ id: string }>();
@@ -20,6 +140,7 @@ export default function MentorProfile() {
   const [booking, setBooking] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
+  const [bookedSlot, setBookedSlot] = useState<Slot | null>(null);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -57,7 +178,7 @@ export default function MentorProfile() {
     setError(null);
     setBooking(slot.id);
 
-    const roomName = `intervuee-${slot.id}-${Date.now().toString(36)}`;
+    const roomName = `roundora-${slot.id}-${Date.now().toString(36)}`;
 
     const { error: bookingError } = await supabase.from('bookings').insert({
       student_id: session.user.id,
@@ -76,147 +197,405 @@ export default function MentorProfile() {
     await supabase.from('slots').update({ is_booked: true }).eq('id', slot.id);
 
     setBooking(null);
+    setBookedSlot(slot);
     setSuccess(true);
   };
 
-  if (loading) return <div className="max-w-4xl mx-auto px-6 py-16 text-slate-500 text-sm">Loading...</div>;
-  if (!mentor) return <div className="max-w-4xl mx-auto px-6 py-16 text-slate-500 text-sm">Mentor not found.</div>;
-
-  if (success) {
+  if (loading) {
     return (
-      <div className="max-w-md mx-auto px-6 py-24 text-center">
-        <CheckCircle2 size={40} className="text-accent-emerald mx-auto mb-4" />
-        <h1 className="text-xl font-bold mb-2">Session booked!</h1>
-        <p className="text-slate-500 text-sm mb-6">
-          Your video call room is ready. Find it anytime in your dashboard.
-        </p>
-        <Link to="/dashboard" className="btn-primary inline-flex">
-          Go to my bookings
-        </Link>
+      <div style={{ maxWidth: '900px', margin: '0 auto', padding: '24px 16px' }}>
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: '16px' }}>
+          {[1, 2, 3].map((i) => (
+            <div key={i} style={{ height: '80px', borderRadius: '16px', backgroundColor: '#f1f5f9', animation: 'pulse 2s infinite' }} />
+          ))}
+        </div>
       </div>
     );
   }
 
-  return (
-    <div className="max-w-4xl mx-auto px-6 py-12 grid md:grid-cols-3 gap-8">
-      <div className="md:col-span-2">
-        <div className="flex items-center gap-4 mb-4">
-          <Avatar url={mentor.avatar_url} name={mentor.full_name} size={64} />
-          <div>
-            <h1 className="text-xl font-bold">{mentor.full_name}</h1>
-            <div className="text-sm text-slate-500">{mentor.headline ?? 'Interviewer'}</div>
+  if (!mentor) {
+    return (
+      <div style={{ textAlign: 'center', padding: '80px 24px' }}>
+        <div style={{ fontSize: '48px', marginBottom: '16px' }}>🔍</div>
+        <h1 style={{ fontSize: '20px', fontWeight: '700', color: '#0f172a' }}>Mentor not found</h1>
+        <Link to="/mentors" style={{ color: '#4f46e5', textDecoration: 'none', marginTop: '12px', display: 'inline-block' }}>← Browse mentors</Link>
+      </div>
+    );
+  }
+
+  if (success && bookedSlot) {
+    const bookedDate = new Date(bookedSlot.start_time);
+    return (
+      <div style={{
+        minHeight: '100dvh',
+        backgroundColor: '#0f0f1a',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        padding: '24px',
+        fontFamily: "'Inter', system-ui, sans-serif",
+      }}>
+        <div style={{ textAlign: 'center', maxWidth: '400px', width: '100%' }}>
+          <div style={{
+            width: '80px',
+            height: '80px',
+            borderRadius: '50%',
+            background: 'linear-gradient(135deg, #059669, #10b981)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            margin: '0 auto 24px',
+            boxShadow: '0 8px 32px rgba(16,185,129,0.4)',
+          }}>
+            <CheckCircle2 size={40} color="#fff" />
           </div>
-        </div>
+          <h1 style={{ color: '#fff', fontSize: '26px', fontWeight: '800', margin: '0 0 8px' }}>
+            Session Booked! 🎉
+          </h1>
+          <p style={{ color: 'rgba(255,255,255,0.6)', fontSize: '14px', margin: '0 0 24px', lineHeight: 1.6 }}>
+            Your session with <strong style={{ color: '#fff' }}>{mentor.full_name}</strong> is confirmed.
+          </p>
 
-        {avgRating !== null && (
-          <div className="flex items-center gap-2 mb-4">
-            <StarRating rating={avgRating} size={16} />
-            <span className="text-sm text-slate-400">
-              {avgRating.toFixed(1)} · {reviews.length} review{reviews.length !== 1 ? 's' : ''}
-            </span>
-          </div>
-        )}
-
-        {mentor.expertise && mentor.expertise.length > 0 && (
-          <div className="flex flex-wrap gap-2 mb-5">
-            {mentor.expertise.map((tag) => (
-              <span
-                key={tag}
-                className={`text-xs px-2.5 py-1 rounded-full bg-dark-bg border border-dark-border ${topicColor(
-                  tag
-                )}`}
-              >
-                {topicLabel(tag)}
-              </span>
-            ))}
-          </div>
-        )}
-
-        <div className="flex items-center gap-4 text-sm text-slate-400 mb-6">
-          <span className="flex items-center gap-1.5">
-            <Briefcase size={14} /> {mentor.company ?? '—'}
-          </span>
-          {mentor.years_experience != null && <span>{mentor.years_experience} yrs experience</span>}
-        </div>
-        <p className="text-slate-400 leading-relaxed mb-10">{mentor.bio ?? 'No bio added yet.'}</p>
-
-        {reviews.length > 0 && (
-          <div>
-            <h2 className="font-semibold mb-4">What students say</h2>
-            <div className="space-y-4">
-              {reviews.map((r) => (
-                <div key={r.id} className="card p-4">
-                  <div className="flex items-center justify-between mb-2">
-                    <div className="flex items-center gap-2">
-                      <Avatar url={r.student?.avatar_url} name={r.student?.full_name} size={28} />
-                      <span className="text-sm font-medium">{r.student?.full_name ?? 'Student'}</span>
-                    </div>
-                    <StarRating rating={r.rating} size={12} />
-                  </div>
-                  {r.comment && <p className="text-sm text-slate-500">{r.comment}</p>}
+          {/* Booking Details Card */}
+          <div style={{
+            backgroundColor: 'rgba(255,255,255,0.08)',
+            border: '1px solid rgba(255,255,255,0.15)',
+            borderRadius: '20px',
+            padding: '20px',
+            marginBottom: '24px',
+            textAlign: 'left',
+          }}>
+            <div style={{ color: 'rgba(255,255,255,0.5)', fontSize: '11px', fontWeight: '600', letterSpacing: '1px', textTransform: 'uppercase', marginBottom: '12px' }}>
+              Booking Details
+            </div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                <Calendar size={16} color="#6366f1" />
+                <span style={{ color: '#fff', fontSize: '14px', fontWeight: '600' }}>
+                  {bookedDate.toLocaleDateString('en-IN', { weekday: 'long', day: 'numeric', month: 'long' })}
+                </span>
+              </div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                <Clock size={16} color="#6366f1" />
+                <span style={{ color: '#fff', fontSize: '14px', fontWeight: '600' }}>
+                  {bookedDate.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', hour12: true })}
+                  <span style={{ color: 'rgba(255,255,255,0.5)', fontWeight: '400', marginLeft: '6px' }}>
+                    · {bookedSlot.duration_minutes} min
+                  </span>
+                </span>
+              </div>
+              {bookedSlot.topic && (
+                <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                  <Zap size={16} color="#6366f1" />
+                  <span style={{ color: '#fff', fontSize: '14px', fontWeight: '600' }}>
+                    {topicLabel(bookedSlot.topic)}
+                  </span>
                 </div>
+              )}
+            </div>
+          </div>
+
+          <Link
+            to="/dashboard"
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: '8px',
+              padding: '14px 24px',
+              borderRadius: '14px',
+              background: 'linear-gradient(135deg, #4f46e5, #7c3aed)',
+              color: '#fff',
+              fontSize: '15px',
+              fontWeight: '700',
+              textDecoration: 'none',
+              boxShadow: '0 4px 20px rgba(99,102,241,0.4)',
+            }}
+          >
+            Go to My Bookings →
+          </Link>
+        </div>
+      </div>
+    );
+  }
+
+  const isMentor = profile?.role === 'mentor';
+  const isOwnProfile = session?.user.id === id;
+
+  return (
+    <div style={{ maxWidth: '900px', margin: '0 auto', padding: '16px', fontFamily: "'Inter', system-ui, sans-serif" }}>
+      {/* Back button */}
+      <Link
+        to="/mentors"
+        style={{
+          display: 'inline-flex',
+          alignItems: 'center',
+          gap: '6px',
+          color: '#64748b',
+          textDecoration: 'none',
+          fontSize: '14px',
+          marginBottom: '20px',
+        }}
+      >
+        <ArrowLeft size={16} /> All mentors
+      </Link>
+
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: '20px' }}>
+        {/* Profile Header Card */}
+        <div style={{
+          backgroundColor: '#fff',
+          borderRadius: '24px',
+          border: '1px solid #e2e8f0',
+          padding: '24px',
+          boxShadow: '0 2px 12px rgba(0,0,0,0.06)',
+        }}>
+          <div style={{ display: 'flex', alignItems: 'flex-start', gap: '16px', marginBottom: '16px', flexWrap: 'wrap' }}>
+            <Avatar url={mentor.avatar_url} name={mentor.full_name} size={72} />
+            <div style={{ flex: 1 }}>
+              <h1 style={{ fontSize: '22px', fontWeight: '800', color: '#0f172a', margin: '0 0 4px' }}>
+                {mentor.full_name}
+              </h1>
+              <div style={{ fontSize: '14px', color: '#64748b', marginBottom: '8px' }}>
+                {mentor.headline ?? 'Interviewer'}
+              </div>
+              {avgRating !== null && (
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px' }}>
+                  <StarRating rating={avgRating} size={15} />
+                  <span style={{ fontSize: '13px', color: '#94a3b8' }}>
+                    {avgRating.toFixed(1)} ({reviews.length} review{reviews.length !== 1 ? 's' : ''})
+                  </span>
+                </div>
+              )}
+              <div style={{ display: 'flex', alignItems: 'center', gap: '16px', flexWrap: 'wrap' }}>
+                {mentor.company && (
+                  <span style={{ fontSize: '13px', color: '#64748b', display: 'flex', alignItems: 'center', gap: '5px' }}>
+                    <Briefcase size={13} /> {mentor.company}
+                  </span>
+                )}
+                {mentor.years_experience != null && (
+                  <span style={{ fontSize: '13px', color: '#64748b', display: 'flex', alignItems: 'center', gap: '5px' }}>
+                    <Users size={13} /> {mentor.years_experience} yrs exp
+                  </span>
+                )}
+              </div>
+            </div>
+            {mentor.price_per_session != null && (
+              <div style={{
+                backgroundColor: '#f0fdf4',
+                border: '1px solid #bbf7d0',
+                borderRadius: '16px',
+                padding: '12px 18px',
+                textAlign: 'center',
+                flexShrink: 0,
+              }}>
+                <div style={{ fontSize: '22px', fontWeight: '800', color: '#059669', display: 'flex', alignItems: 'center', gap: '2px' }}>
+                  <IndianRupee size={18} />{mentor.price_per_session}
+                </div>
+                <div style={{ fontSize: '11px', color: '#64748b', marginTop: '2px' }}>per session</div>
+              </div>
+            )}
+          </div>
+
+          {mentor.expertise && mentor.expertise.length > 0 && (
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px', marginBottom: '14px' }}>
+              {mentor.expertise.map((tag) => (
+                <span
+                  key={tag}
+                  className={`text-xs px-3 py-1.5 rounded-full font-medium ${topicColor(tag)}`}
+                  style={{ backgroundColor: '#f8fafc', border: '1px solid #e2e8f0' }}
+                >
+                  {topicLabel(tag)}
+                </span>
               ))}
             </div>
-          </div>
-        )}
-      </div>
-
-      <div>
-        <div className="card p-5 sticky top-24">
-          {mentor.price_per_session != null && (
-            <div className="flex items-center gap-1 text-lg font-bold mb-4">
-              <IndianRupee size={16} />
-              {mentor.price_per_session}
-              <span className="text-sm font-normal text-slate-500">/ session</span>
-            </div>
           )}
-          <div className="flex items-center gap-1.5 text-sm font-medium text-slate-400 mb-3">
-            <Calendar size={14} /> Available slots
+
+          {mentor.bio && (
+            <p style={{ fontSize: '14px', color: '#475569', lineHeight: 1.7, margin: 0 }}>
+              {mentor.bio}
+            </p>
+          )}
+        </div>
+
+        {/* Slots Section */}
+        <div style={{
+          backgroundColor: '#fff',
+          borderRadius: '24px',
+          border: '1px solid #e2e8f0',
+          padding: '24px',
+          boxShadow: '0 2px 12px rgba(0,0,0,0.06)',
+        }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '16px', flexWrap: 'wrap', gap: '8px' }}>
+            <h2 style={{ fontSize: '18px', fontWeight: '700', color: '#0f172a', margin: 0, display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <Calendar size={20} color="#4f46e5" /> Available Slots
+            </h2>
+            {slots.length > 0 && (
+              <span style={{
+                fontSize: '12px',
+                padding: '4px 12px',
+                borderRadius: '20px',
+                backgroundColor: '#dcfce7',
+                color: '#16a34a',
+                fontWeight: '600',
+              }}>
+                {slots.length} slot{slots.length !== 1 ? 's' : ''} open
+              </span>
+            )}
           </div>
 
           {error && (
-            <div className="flex items-start gap-2 text-xs text-rose-400 bg-rose-950/50 border border-rose-900 rounded-xl px-3 py-2 mb-3">
-              <AlertCircle size={13} className="shrink-0 mt-0.5" />
+            <div style={{
+              display: 'flex',
+              alignItems: 'flex-start',
+              gap: '8px',
+              backgroundColor: '#fff1f2',
+              border: '1px solid #fecdd3',
+              borderRadius: '12px',
+              padding: '12px',
+              marginBottom: '12px',
+              color: '#be123c',
+              fontSize: '13px',
+            }}>
+              <AlertCircle size={15} style={{ flexShrink: 0, marginTop: '1px' }} />
               {error}
             </div>
           )}
 
           {slots.length === 0 ? (
-            <p className="text-sm text-slate-500">No open slots right now.</p>
-          ) : (
-            <div className="space-y-2 max-h-96 overflow-y-auto">
-              {slots.map((slot) => (
-                <button
-                  key={slot.id}
-                  onClick={() => handleBook(slot)}
-                  disabled={booking === slot.id || profile?.role === 'mentor'}
-                  className="w-full text-left text-sm bg-dark-bg border border-dark-border hover:border-brand-600 rounded-xl px-3 py-2.5 transition-colors disabled:opacity-50"
+            <div style={{
+              textAlign: 'center',
+              padding: '32px 16px',
+              backgroundColor: '#f8fafc',
+              borderRadius: '16px',
+              border: '1px dashed #e2e8f0',
+            }}>
+              <div style={{ fontSize: '40px', marginBottom: '12px' }}>📅</div>
+              <div style={{ fontWeight: '600', color: '#374151', fontSize: '15px', marginBottom: '6px' }}>
+                No slots available right now
+              </div>
+              <p style={{ color: '#94a3b8', fontSize: '13px', margin: '0 0 16px', lineHeight: 1.5 }}>
+                {isOwnProfile
+                  ? 'Go to your dashboard and add available time slots so students can book you.'
+                  : 'This mentor hasn\'t added any slots yet. Check back soon!'}
+              </p>
+              {isOwnProfile && (
+                <Link
+                  to="/dashboard"
+                  style={{
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '6px',
+                    padding: '10px 20px',
+                    borderRadius: '12px',
+                    background: 'linear-gradient(135deg, #4f46e5, #7c3aed)',
+                    color: '#fff',
+                    fontSize: '13px',
+                    fontWeight: '600',
+                    textDecoration: 'none',
+                  }}
                 >
-                  <div className="font-medium">
-                    {new Date(slot.start_time).toLocaleDateString(undefined, {
-                      weekday: 'short',
-                      month: 'short',
-                      day: 'numeric',
-                    })}
-                  </div>
-                  <div className="text-xs text-slate-500">
-                    {new Date(slot.start_time).toLocaleTimeString(undefined, {
-                      hour: '2-digit',
-                      minute: '2-digit',
-                    })}{' '}
-                    · {slot.duration_minutes} min
-                  </div>
-                  {slot.topic && (
-                    <div className={`text-xs mt-1 ${topicColor(slot.topic)}`}>{topicLabel(slot.topic)}</div>
-                  )}
-                </button>
+                  + Add Slots from Dashboard
+                </Link>
+              )}
+              {!session && !isOwnProfile && (
+                <Link
+                  to="/login"
+                  style={{
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '6px',
+                    padding: '10px 20px',
+                    borderRadius: '12px',
+                    background: 'linear-gradient(135deg, #4f46e5, #7c3aed)',
+                    color: '#fff',
+                    fontSize: '13px',
+                    fontWeight: '600',
+                    textDecoration: 'none',
+                  }}
+                >
+                  Login to get notified
+                </Link>
+              )}
+            </div>
+          ) : (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+              {!session && (
+                <div style={{
+                  backgroundColor: '#fffbeb',
+                  border: '1px solid #fde68a',
+                  borderRadius: '12px',
+                  padding: '10px 14px',
+                  fontSize: '13px',
+                  color: '#92400e',
+                  marginBottom: '4px',
+                }}>
+                  ⚠️ <Link to="/login" style={{ color: '#92400e', fontWeight: '700' }}>Login</Link> to book a slot.
+                </div>
+              )}
+              {isMentor && !isOwnProfile && (
+                <div style={{
+                  backgroundColor: '#f1f5f9',
+                  borderRadius: '12px',
+                  padding: '10px 14px',
+                  fontSize: '13px',
+                  color: '#64748b',
+                  marginBottom: '4px',
+                }}>
+                  ℹ️ Mentors can't book sessions.
+                </div>
+              )}
+              {slots.map((slot) => (
+                <SlotCard
+                  key={slot.id}
+                  slot={slot}
+                  onBook={() => handleBook(slot)}
+                  isBooking={booking === slot.id}
+                  disabled={!session || isMentor || isOwnProfile}
+                />
               ))}
             </div>
           )}
-          {profile?.role === 'mentor' && (
-            <p className="text-xs text-slate-500 mt-3">Interviewer accounts can't book sessions.</p>
-          )}
         </div>
+
+        {/* Reviews Section */}
+        {reviews.length > 0 && (
+          <div style={{
+            backgroundColor: '#fff',
+            borderRadius: '24px',
+            border: '1px solid #e2e8f0',
+            padding: '24px',
+            boxShadow: '0 2px 12px rgba(0,0,0,0.06)',
+          }}>
+            <h2 style={{ fontSize: '18px', fontWeight: '700', color: '#0f172a', margin: '0 0 16px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <Star size={20} color="#f59e0b" fill="#f59e0b" /> What students say
+            </h2>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+              {reviews.map((r) => (
+                <div key={r.id} style={{
+                  backgroundColor: '#f8fafc',
+                  borderRadius: '16px',
+                  border: '1px solid #e2e8f0',
+                  padding: '16px',
+                }}>
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '10px', flexWrap: 'wrap', gap: '8px' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                      <Avatar url={r.student?.avatar_url} name={r.student?.full_name} size={32} />
+                      <span style={{ fontSize: '14px', fontWeight: '600', color: '#0f172a' }}>
+                        {r.student?.full_name ?? 'Student'}
+                      </span>
+                    </div>
+                    <StarRating rating={r.rating} size={14} />
+                  </div>
+                  {r.comment && (
+                    <p style={{ fontSize: '14px', color: '#475569', margin: 0, lineHeight: 1.6 }}>
+                      "{r.comment}"
+                    </p>
+                  )}
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );
