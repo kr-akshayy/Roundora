@@ -96,7 +96,22 @@ export default function Mentors() {
       </div>
 
       {loading ? (
-        <div className="text-slate-500 text-sm">Loading mentors...</div>
+        <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-5">
+          {[1, 2, 3, 4, 5, 6].map((i) => (
+            <div key={i} className="card p-5 animate-pulse">
+              <div className="flex items-center gap-3 mb-3">
+                <div className="w-11 h-11 rounded-full bg-slate-200" />
+                <div className="flex-1">
+                  <div className="h-4 bg-slate-200 rounded w-28 mb-1.5" />
+                  <div className="h-3 bg-slate-100 rounded w-20" />
+                </div>
+              </div>
+              <div className="h-3 bg-slate-100 rounded w-full mb-2" />
+              <div className="h-3 bg-slate-100 rounded w-3/4 mb-4" />
+              <div className="h-4 bg-slate-200 rounded w-full pt-3 border-t border-slate-100" />
+            </div>
+          ))}
+        </div>
       ) : filtered.length === 0 ? (
         <div className="card p-8 text-center text-slate-500 text-sm">
           {mentors.length === 0
