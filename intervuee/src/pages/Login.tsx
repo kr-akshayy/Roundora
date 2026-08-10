@@ -45,7 +45,7 @@ export default function Login() {
         signInErr.message?.toLowerCase().includes('email not confirmed') ||
         signInErr.message?.toLowerCase().includes('not confirmed');
       if (isUnconfirmed) {
-        setError('📧 Email confirmed नहीं हुआ है। Inbox/spam check करें या नीचे से नया link मंगवाएं।');
+        setError('📧 Email not confirmed. Please check your inbox/spam folder or click resend below.');
         setShowResend(true);
       } else {
         setError(signInErr.message);
@@ -57,7 +57,7 @@ export default function Login() {
   };
 
   const handleResendConfirmation = async () => {
-    if (!email) { setError('Pehle email enter karein.'); return; }
+    if (!email) { setError('Please enter your email address first.'); return; }
     setResendLoading(true);
     setResendStatus(null);
     const { error: resendErr } = await supabase.auth.resend({ type: 'signup', email });
@@ -65,7 +65,7 @@ export default function Login() {
     if (resendErr) {
       setResendStatus(`❌ Error: ${resendErr.message}`);
     } else {
-      setResendStatus('✅ Confirmation link dubara bhej diya gaya hai! Inbox check karein.');
+      setResendStatus('✅ Confirmation link sent to your email! Please check your inbox.');
     }
   };
 
@@ -89,7 +89,7 @@ export default function Login() {
       if (otpErr.message?.toLowerCase().includes('signups not allowed') ||
           otpErr.message?.toLowerCase().includes('user not found') ||
           otpErr.message?.toLowerCase().includes('email not found')) {
-        setOtpError('यह email register नहीं है। पहले Sign Up करें।');
+        setOtpError('This email is not registered. Please sign up first.');
       } else {
         setOtpError(otpErr.message);
       }
@@ -101,7 +101,7 @@ export default function Login() {
   const handleVerifyOTP = async (e: FormEvent) => {
     e.preventDefault();
     if (!otpCode || otpCode.length < 6) {
-      setOtpError('6-digit OTP code enter करें।');
+      setOtpError('Please enter a 6-digit OTP code.');
       return;
     }
     setOtpError(null);
@@ -117,7 +117,7 @@ export default function Login() {
     if (verifyErr) {
       if (verifyErr.message?.toLowerCase().includes('expired') ||
           verifyErr.message?.toLowerCase().includes('invalid')) {
-        setOtpError('❌ OTP गलत या expire हो गया। नया OTP मंगवाएं।');
+        setOtpError('❌ Invalid or expired OTP. Please request a new code.');
       } else {
         setOtpError(verifyErr.message);
       }
@@ -229,7 +229,7 @@ export default function Login() {
                   style={styles.forgotLink}
                   onClick={() => switchMode('otp')}
                 >
-                  Password bhool gaye? OTP use karein →
+                  Forgot password? Use Email OTP →
                 </span>
               </div>
               <div style={styles.passwordWrap}>
@@ -274,7 +274,7 @@ export default function Login() {
                   <div>
                     <div style={{ fontWeight: '700', marginBottom: '3px' }}>Email OTP Login</div>
                     <div style={{ lineHeight: 1.5 }}>
-                      Apni email enter karein → 6-digit OTP code aapki email pe aayega → code enter karo → Login!
+                      Enter your email → Receive 6-digit OTP in inbox → Enter code to log in instantly.
                     </div>
                   </div>
                 </div>
@@ -315,10 +315,10 @@ export default function Login() {
                   fontSize: '13px',
                   color: '#166534',
                 }}>
-                  <div style={{ fontWeight: '700', marginBottom: '3px' }}>✅ OTP भेज दिया गया!</div>
+                  <div style={{ fontWeight: '700', marginBottom: '3px' }}>✅ OTP Sent!</div>
                   <div style={{ lineHeight: 1.5 }}>
-                    <strong>{otpEmail}</strong> par 6-digit OTP code bheja gaya hai।
-                    Inbox (aur spam folder) check karein।
+                    A 6-digit OTP code was sent to <strong>{otpEmail}</strong>.
+                    Please check your inbox (and spam folder).
                   </div>
                 </div>
 
@@ -353,7 +353,7 @@ export default function Login() {
                     autoFocus
                   />
                   <div style={{ fontSize: '12px', color: '#94a3b8', textAlign: 'center' }}>
-                    OTP 10 minutes mein expire ho jaata hai
+                    OTP expires in 10 minutes
                   </div>
                 </div>
 
@@ -369,7 +369,7 @@ export default function Login() {
                   onClick={() => { setOtpSent(false); setOtpCode(''); setOtpError(null); }}
                   style={{ background: 'none', border: 'none', color: '#6366f1', fontSize: '13px', fontWeight: '600', cursor: 'pointer', textAlign: 'center' }}
                 >
-                  ← Dobara OTP bhejein
+                  ← Resend OTP
                 </button>
               </form>
             )}

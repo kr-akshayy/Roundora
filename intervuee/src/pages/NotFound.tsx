@@ -82,7 +82,7 @@ export default function NotFound() {
             lineHeight: 1.6,
           }}
         >
-          Aap jis page ko dhundh rahe hain wo exist nahi karta.
+          The page you are looking for does not exist or has been moved.
         </p>
 
         <div style={{ display: 'flex', gap: '12px', justifyContent: 'center', flexWrap: 'wrap' }}>

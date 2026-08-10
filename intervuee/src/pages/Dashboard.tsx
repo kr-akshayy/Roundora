@@ -152,8 +152,8 @@ function StudentDashboard({ userId }: { userId: string }) {
     return (
       <div className="card p-10 text-center">
         <div className="text-4xl mb-3">📅</div>
-        <p className="text-slate-600 font-medium mb-1">Koi session book nahi hua abhi tak</p>
-        <p className="text-slate-400 text-sm mb-5">Kisi mentor ka slot book karo aur mock interview practice karo.</p>
+        <p className="text-slate-600 font-medium mb-1">No sessions booked yet</p>
+        <p className="text-slate-400 text-sm mb-5">Book a slot with an interviewer to practice your mock interview.</p>
         <Link to="/mentors" className="btn-primary inline-flex">
           Find an interviewer
         </Link>

@@ -59,9 +59,9 @@ export default function Signup() {
         signUpError.message?.toLowerCase().includes('not confirmed');
 
       if (isRateLimit) {
-        setError('⏳ बहुत ज़्यादा signup attempts हो गए। 5-10 मिनट बाद try करें, या एक अलग email use करें।');
+        setError('⏳ Too many signup attempts. Please wait 5-10 minutes or try using a different email.');
       } else if (isUnconfirmed) {
-        setError('📧 Email confirm नहीं हुआ है। आपकी email पर verification link/OTP भेजा गया है। Code दर्ज करें या नीचे resend करें।');
+        setError('📧 Email not confirmed. A verification link/OTP has been sent to your email. Enter the code below or click resend.');
         setDone(true);
       } else {
         setError(getErrorMessage(signUpError));
@@ -101,7 +101,7 @@ export default function Signup() {
   const handleVerifyOtp = async (e: FormEvent) => {
     e.preventDefault();
     if (!otpCode || otpCode.length < 6) {
-      setOtpError('6-digit OTP code enter karein.');
+      setOtpError('Please enter a valid 6-digit OTP code.');
       return;
     }
     setOtpError(null);
@@ -152,7 +152,7 @@ export default function Signup() {
     if (resendErr) {
       setResendStatus(`❌ Resend failed: ${getErrorMessage(resendErr)}`);
     } else {
-      setResendStatus('✅ Naya OTP / confirmation link aapki email par bhej diya gaya hai! Inbox check karein.');
+      setResendStatus('✅ A new OTP / confirmation link has been sent to your email! Please check your inbox.');
     }
   };
 
