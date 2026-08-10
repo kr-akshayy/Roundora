@@ -31,6 +31,10 @@ export default function Signup() {
   const [resendStatus, setResendStatus] = useState<string | null>(null);
   const navigate = useNavigate();
 
+  const [otpCode, setOtpCode] = useState('');
+  const [otpVerifying, setOtpVerifying] = useState(false);
+  const [otpError, setOtpError] = useState<string | null>(null);
+
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
     setError(null);
@@ -57,7 +61,7 @@ export default function Signup() {
       if (isRateLimit) {
         setError('⏳ बहुत ज़्यादा signup attempts हो गए। 5-10 मिनट बाद try करें, या एक अलग email use करें।');
       } else if (isUnconfirmed) {
-        setError('📧 Email confirm नहीं हुआ है। आपकी email पर verification link भेजा गया है। Link confirm करें, या नीचे resend करें।');
+        setError('📧 Email confirm नहीं हुआ है। आपकी email पर verification link/OTP भेजा गया है। Code दर्ज करें या नीचे resend करें।');
         setDone(true);
       } else {
         setError(getErrorMessage(signUpError));
@@ -94,6 +98,48 @@ export default function Signup() {
     }
   };
 
+  const handleVerifyOtp = async (e: FormEvent) => {
+    e.preventDefault();
+    if (!otpCode || otpCode.length < 6) {
+      setOtpError('6-digit OTP code enter karein.');
+      return;
+    }
+    setOtpError(null);
+    setOtpVerifying(true);
+
+    let { data: verifyData, error: verifyErr } = await supabase.auth.verifyOtp({
+      email,
+      token: otpCode,
+      type: 'signup',
+    });
+
+    if (verifyErr) {
+      const res = await supabase.auth.verifyOtp({
+        email,
+        token: otpCode,
+        type: 'email',
+      });
+      verifyData = res.data;
+      verifyErr = res.error;
+    }
+
+    setOtpVerifying(false);
+    if (verifyErr) {
+      setOtpError(getErrorMessage(verifyErr));
+      return;
+    }
+
+    if (verifyData.user) {
+      await supabase.from('profiles').upsert({
+        id: verifyData.user.id,
+        full_name: fullName,
+        role,
+      });
+    }
+
+    navigate('/dashboard');
+  };
+
   const handleResendConfirmation = async () => {
     if (!email) return;
     setResendLoading(true);
@@ -106,7 +152,7 @@ export default function Signup() {
     if (resendErr) {
       setResendStatus(`❌ Resend failed: ${getErrorMessage(resendErr)}`);
     } else {
-      setResendStatus('✅ Naya confirmation link aapki email par bhej diya gaya hai! Inbox check karein.');
+      setResendStatus('✅ Naya OTP / confirmation link aapki email par bhej diya gaya hai! Inbox check karein.');
     }
   };
 
@@ -116,10 +162,53 @@ export default function Signup() {
         <div style={styles.heroBg} />
         <div style={styles.doneCard}>
           <div style={styles.doneIcon}>✉️</div>
-          <h1 style={styles.doneTitle}>Check your inbox!</h1>
+          <h1 style={styles.doneTitle}>Check your email!</h1>
           <p style={styles.doneSub}>
-            We sent a confirmation link to <strong>{email}</strong>. Confirm it, then log in.
+            We sent a 6-digit OTP code to <strong>{email}</strong>. Enter it below or click the link in your email.
           </p>
+
+          <form onSubmit={handleVerifyOtp} style={{ width: '100%', maxWidth: '320px', margin: '0 auto 16px', display: 'flex', flexDirection: 'column', gap: '10px' }}>
+            {otpError && (
+              <div style={{ backgroundColor: 'rgba(239,68,68,0.2)', border: '1px solid #ef4444', color: '#fca5a5', padding: '8px 12px', borderRadius: '8px', fontSize: '13px' }}>
+                {otpError}
+              </div>
+            )}
+            <input
+              type="text"
+              inputMode="numeric"
+              pattern="[0-9]{6}"
+              maxLength={6}
+              value={otpCode}
+              onChange={(e) => setOtpCode(e.target.value.replace(/\D/g, '').slice(0, 6))}
+              placeholder="_ _ _ _ _ _"
+              style={{
+                width: '100%',
+                padding: '14px',
+                borderRadius: '12px',
+                border: '1.5px solid rgba(255,255,255,0.3)',
+                backgroundColor: 'rgba(255,255,255,0.1)',
+                color: '#fff',
+                fontSize: '24px',
+                fontWeight: '800',
+                letterSpacing: '10px',
+                textAlign: 'center',
+                outline: 'none',
+                boxSizing: 'border-box',
+              }}
+            />
+            <button
+              type="submit"
+              disabled={otpVerifying || otpCode.length < 6}
+              style={{
+                ...styles.ctaBtn,
+                opacity: (otpVerifying || otpCode.length < 6) ? 0.6 : 1,
+                cursor: (otpVerifying || otpCode.length < 6) ? 'not-allowed' : 'pointer',
+              }}
+            >
+              {otpVerifying ? 'Verifying...' : 'Verify OTP & Continue →'}
+            </button>
+          </form>
+
           {resendStatus && (
             <p style={{
               color: resendStatus.startsWith('✅') ? '#4ade80' : '#f87171',
@@ -132,8 +221,8 @@ export default function Signup() {
               {resendStatus}
             </p>
           )}
+
           <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', width: '100%', maxWidth: '320px', margin: '0 auto' }}>
-            <Link to="/login" style={styles.ctaBtn}>Go to Login</Link>
             <button
               type="button"
               onClick={handleResendConfirmation}
@@ -153,8 +242,11 @@ export default function Signup() {
                 opacity: resendLoading ? 0.7 : 1,
               }}
             >
-              {resendLoading ? 'Sending link...' : 'Resend Confirmation Email'}
+              {resendLoading ? 'Sending...' : 'Resend OTP / Link'}
             </button>
+            <Link to="/login" style={{ ...styles.ctaBtn, backgroundColor: 'transparent', border: '1px solid rgba(255,255,255,0.2)', boxShadow: 'none' }}>
+              Back to Login
+            </Link>
           </div>
         </div>
       </div>
