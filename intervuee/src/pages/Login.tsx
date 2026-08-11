@@ -234,12 +234,12 @@ export default function Login() {
             <div style={styles.fieldGroup}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                 <label style={styles.fieldLabel}>Password</label>
-                <span
+                <Link
+                  to="/forgot-password"
                   style={styles.forgotLink}
-                  onClick={() => switchMode('otp')}
                 >
-                  Forgot password? Use Email OTP →
-                </span>
+                  Forgot Password? →
+                </Link>
               </div>
               <div style={styles.passwordWrap}>
                 <input
@@ -496,7 +496,7 @@ const styles: Record<string, React.CSSProperties> = {
   },
   fieldGroup: { display: 'flex', flexDirection: 'column', gap: '6px' },
   fieldLabel: { fontSize: '13px', fontWeight: '600', color: '#374151' },
-  forgotLink: { fontSize: '11px', color: '#6366f1', fontWeight: '600', cursor: 'pointer' },
+  forgotLink: { fontSize: '11px', color: '#6366f1', fontWeight: '600', cursor: 'pointer', textDecoration: 'none' },
   input: {
     width: '100%', padding: '13px 14px', borderRadius: '12px',
     border: '1.5px solid #e2e8f0', fontSize: '15px', color: '#0f172a',

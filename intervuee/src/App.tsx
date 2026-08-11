@@ -5,6 +5,8 @@ import ProtectedRoute from './components/ProtectedRoute';
 import Landing from './pages/Landing';
 import Login from './pages/Login';
 import Signup from './pages/Signup';
+import ForgotPassword from './pages/ForgotPassword';
+import ResetPassword from './pages/ResetPassword';
 import Mentors from './pages/Mentors';
 import MentorProfile from './pages/MentorProfile';
 import Dashboard from './pages/Dashboard';
@@ -14,7 +16,7 @@ import NotFound from './pages/NotFound';
 import { useAuthStore } from './lib/auth-store';
 
 // Pages where the Navbar should be hidden (they have their own header)
-const HIDE_NAVBAR_PATHS = ['/login', '/signup'];
+const HIDE_NAVBAR_PATHS = ['/login', '/signup', '/forgot-password', '/reset-password'];
 
 export default function App() {
   const initialize = useAuthStore((s) => s.initialize);
@@ -34,6 +36,8 @@ export default function App() {
           <Route path="/" element={<Landing />} />
           <Route path="/login" element={<Login />} />
           <Route path="/signup" element={<Signup />} />
+          <Route path="/forgot-password" element={<ForgotPassword />} />
+          <Route path="/reset-password" element={<ResetPassword />} />
           <Route path="/mentors" element={<Mentors />} />
           <Route path="/mentors/:id" element={<MentorProfile />} />
           <Route

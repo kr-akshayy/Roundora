@@ -17,9 +17,9 @@ export default function Navbar() {
       <nav className="max-w-6xl mx-auto flex items-center justify-between px-3 sm:px-6 py-2.5 sm:py-3">
         <Link to="/" className="flex items-center gap-2 group shrink-0">
           <img
-            src="/roundora-logo.jpg"
+            src="/roundora-logo.png"
             alt="Roundora"
-            className="w-8 h-8 sm:w-9 sm:h-9 rounded-lg object-cover shadow-sm"
+            className="w-9 h-9 sm:w-10 sm:h-10 rounded-xl object-cover shadow-sm ring-1 ring-slate-900/10 group-hover:scale-105 transition-all duration-200"
           />
           <span className="font-bold tracking-tight text-base sm:text-lg text-slate-900 group-hover:text-brand-600 transition-colors">
             Roundora
