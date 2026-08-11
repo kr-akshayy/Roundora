@@ -69,6 +69,24 @@ export default function Login() {
     }
   };
 
+  // Helper to format Supabase errors safely
+  const parseAuthError = (err: any, fallbackMsg: string): string => {
+    if (!err) return fallbackMsg;
+    let msg = typeof err === 'string' ? err : err.message || err.error_description || '';
+    if (typeof msg === 'object') {
+      try {
+        msg = JSON.stringify(msg);
+      } catch {
+        msg = '';
+      }
+    }
+    msg = String(msg).trim();
+    if (!msg || msg === '{}' || msg === 'null' || msg === 'undefined') {
+      return fallbackMsg;
+    }
+    return msg;
+  };
+
   // ── OTP login ───────────────────────────────────────────────
   const handleSendOTP = async (e: FormEvent) => {
     e.preventDefault();
@@ -77,7 +95,7 @@ export default function Login() {
     setOtpLoading(true);
 
     const { error: otpErr } = await supabase.auth.signInWithOtp({
-      email: otpEmail,
+      email: otpEmail.trim(),
       options: {
         shouldCreateUser: false, // Only existing users can login with OTP
       },
@@ -85,13 +103,22 @@ export default function Login() {
 
     setOtpLoading(false);
     if (otpErr) {
-      // If user not found, give helpful message
-      if (otpErr.message?.toLowerCase().includes('signups not allowed') ||
-          otpErr.message?.toLowerCase().includes('user not found') ||
-          otpErr.message?.toLowerCase().includes('email not found')) {
-        setOtpError('This email is not registered. Please sign up first.');
+      const rawMsg = parseAuthError(
+        otpErr,
+        'OTP bhej nahi paye. Make sure account registered hai ya Password tab se login karein.'
+      );
+      const lower = rawMsg.toLowerCase();
+
+      if (
+        lower.includes('signups not allowed') ||
+        lower.includes('user not found') ||
+        lower.includes('email not found')
+      ) {
+        setOtpError('Yeh email registered nahi hai. Pehle Sign Up karein.');
+      } else if (lower.includes('rate limit') || lower.includes('too many requests')) {
+        setOtpError('Bahut saare OTP attempts ho gaye hain. 5 minute baad try karein.');
       } else {
-        setOtpError(otpErr.message);
+        setOtpError(rawMsg);
       }
       return;
     }
@@ -124,11 +151,12 @@ export default function Login() {
 
     setOtpVerifying(false);
     if (verifyErr) {
-      if (verifyErr.message?.toLowerCase().includes('expired') ||
-          verifyErr.message?.toLowerCase().includes('invalid')) {
-        setOtpError('❌ Invalid or expired OTP. Please request a new code.');
+      const rawMsg = parseAuthError(verifyErr, 'Invalid or expired OTP code.');
+      const lower = rawMsg.toLowerCase();
+      if (lower.includes('expired') || lower.includes('invalid')) {
+        setOtpError('❌ Invalid ya expired OTP. Please naya code request karein.');
       } else {
-        setOtpError(verifyErr.message);
+        setOtpError(rawMsg);
       }
       return;
     }
