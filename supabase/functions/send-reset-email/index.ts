@@ -28,9 +28,12 @@ Deno.serve(async (req: Request) => {
     }
 
     // Supabase Admin client (service_role key use karta hai)
+    const serviceRoleKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') || Deno.env.get('service_role') || '';
+    const supabaseUrl = Deno.env.get('SUPABASE_URL') || '';
+
     const supabaseAdmin = createClient(
-      Deno.env.get('SUPABASE_URL') ?? '',
-      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '',
+      supabaseUrl,
+      serviceRoleKey,
       { auth: { autoRefreshToken: false, persistSession: false } }
     );
 
@@ -39,25 +42,18 @@ Deno.serve(async (req: Request) => {
       type: 'recovery',
       email: email,
       options: {
-        redirectTo: redirectTo ?? `${Deno.env.get('SITE_URL') ?? 'http://localhost:5173'}/reset-password`,
+        redirectTo: redirectTo ?? `${Deno.env.get('SITE_URL') ?? 'https://www.roundora.in'}/reset-password`,
       },
     });
 
     if (linkError) {
       console.error('Link generation error:', linkError);
-      // User ko zyada info mat do security ke liye
-      return new Response(
-        JSON.stringify({ success: true }), // Always return success to prevent email enumeration
-        { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
+      throw new Error(`Link generation error: ${linkError.message}`);
     }
 
     const resetLink = linkData?.properties?.action_link;
     if (!resetLink) {
-      return new Response(
-        JSON.stringify({ success: true }),
-        { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
+      throw new Error('Failed to generate reset link from Supabase Auth');
     }
 
     // Resend API se email bhejo
@@ -75,7 +71,7 @@ Deno.serve(async (req: Request) => {
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        from: Deno.env.get('FROM_EMAIL') ?? 'Roundora <onboarding@resend.dev>',
+        from: Deno.env.get('FROM_EMAIL') ?? 'Roundora <noreply@roundora.in>',
         to: [email],
         subject: '🔐 Reset Your Roundora Password',
         html: emailHtml,
@@ -94,9 +90,10 @@ Deno.serve(async (req: Request) => {
     );
 
   } catch (err) {
-    console.error('Edge function error:', err);
+    const errorMsg = err instanceof Error ? err.message : 'Internal server error';
+    console.error('Edge function error:', errorMsg);
     return new Response(
-      JSON.stringify({ error: 'Internal server error' }),
+      JSON.stringify({ error: errorMsg }),
       { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
   }

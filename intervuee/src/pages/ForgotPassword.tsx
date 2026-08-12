@@ -18,33 +18,39 @@ export default function ForgotPassword() {
     setErrorMsg(null);
 
     try {
-      // Supabase Edge Function call karo
       const { data: { session } } = await supabase.auth.getSession();
-      
+      const targetRedirect = window.location.hostname === 'localhost'
+        ? 'https://www.roundora.in/reset-password'
+        : `${window.location.origin}/reset-password`;
+
+      const anonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
+      const authHeader = session?.access_token
+        ? `Bearer ${session.access_token}`
+        : `Bearer ${anonKey}`;
+
       const res = await fetch(
         `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/send-reset-email`,
         {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
-            'apikey': import.meta.env.VITE_SUPABASE_ANON_KEY,
-            ...(session?.access_token
-              ? { Authorization: `Bearer ${session.access_token}` }
-              : {}),
+            'apikey': anonKey,
+            'Authorization': authHeader,
           },
           body: JSON.stringify({
             email: email.trim().toLowerCase(),
-            redirectTo: `${window.location.origin}/reset-password`,
+            redirectTo: targetRedirect,
           }),
         }
       );
 
-      if (!res.ok) {
-        const errData = await res.json().catch(() => ({}));
-        throw new Error(errData.error || 'Failed to send reset email');
+      const resData = await res.json().catch(() => ({}));
+
+      if (!res.ok || resData?.success === false) {
+        const msg = resData?.error || resData?.message || `Failed to send reset email (${res.status})`;
+        throw new Error(msg);
       }
 
-      // Always show success (security: don't reveal if email exists)
       setStatus('success');
     } catch (err: unknown) {
       console.error('Reset email error:', err);
