@@ -185,10 +185,10 @@ export default function BookingRoom() {
   const otherPerson = profile?.role === 'mentor' ? booking.student : booking.mentor;
   const otherRole = profile?.role === 'mentor' ? 'Student' : 'Mentor / Interviewer';
 
-  // Jitsi Meet URL — config.disableDeepLinking=true prevents mobile app download prompt
+  // Jitsi Meet URL — config.disableDeepLinking=true prevents mobile app download prompt & enables direct inline video
   const jitsiUrl = `https://meet.jit.si/${booking.meeting_room}#userInfo.displayName="${encodeURIComponent(
     profile?.full_name ?? 'Participant'
-  )}"&config.disableDeepLinking=true&config.startWithVideoMuted=false&config.startWithAudioMuted=false`;
+  )}"&config.disableDeepLinking=true&config.prejoinPageEnabled=false&config.enableWelcomePage=false&config.startWithVideoMuted=false&config.startWithAudioMuted=false`;
   const starLabels: Record<number, string> = {
     1: 'Poor 😞',
     2: 'Fair 😐',
@@ -278,8 +278,8 @@ export default function BookingRoom() {
 
           {/* Video Call Embed Container */}
           <div
-            className="card overflow-hidden shadow-lg border border-slate-300 bg-slate-950 relative"
-            style={{ height: 'calc(100vh - 240px)', minHeight: '450px' }}
+            className="card overflow-hidden shadow-lg border border-slate-300 bg-slate-950 relative rounded-2xl"
+            style={{ height: 'calc(100vh - 220px)', minHeight: '520px' }}
           >
             <iframe
               src={jitsiUrl}
