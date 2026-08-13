@@ -138,7 +138,7 @@ export default function Login() {
   const handleVerifyOTP = async (e: FormEvent) => {
     e.preventDefault();
     if (!otpCode || otpCode.length < 6) {
-      setOtpError('Please enter a 6-digit OTP code.');
+      setOtpError('Please enter the full OTP code (minimum 6 characters).');
       return;
     }
     setOtpError(null);
@@ -377,26 +377,27 @@ export default function Login() {
                 )}
 
                 <div style={styles.fieldGroup}>
-                  <label style={styles.fieldLabel}>6-Digit OTP Code</label>
+                  <label style={styles.fieldLabel}>OTP Code (from your email)</label>
                   <input
                     type="text"
-                    inputMode="numeric"
-                    pattern="[0-9]{6}"
-                    maxLength={6}
+                    inputMode="text"
+                    maxLength={8}
                     required
                     value={otpCode}
-                    onChange={(e) => setOtpCode(e.target.value.replace(/\D/g, '').slice(0, 6))}
-                    placeholder="_ _ _ _ _ _"
+                    onChange={(e) => setOtpCode(e.target.value.trim().slice(0, 8))}
+                    placeholder="_ _ _ _ _ _ _ _"
                     style={{
                       ...styles.input,
-                      fontSize: '28px',
+                      fontSize: '22px',
                       fontWeight: '800',
-                      letterSpacing: '12px',
+                      letterSpacing: '8px',
                       textAlign: 'center',
                       padding: '16px 14px',
+                      fontFamily: "'Courier New', monospace",
+                      textTransform: 'lowercase',
                     }}
-                    onFocus={(e) => Object.assign(e.target.style, { ...styles.inputFocus, fontSize: '28px', fontWeight: '800', letterSpacing: '12px', textAlign: 'center' })}
-                    onBlur={(e) => Object.assign(e.target.style, { ...styles.inputBlur, fontSize: '28px', fontWeight: '800', letterSpacing: '12px', textAlign: 'center' })}
+                    onFocus={(e) => Object.assign(e.target.style, { ...styles.inputFocus, fontSize: '22px', fontWeight: '800', letterSpacing: '8px', textAlign: 'center', fontFamily: "'Courier New', monospace" })}
+                    onBlur={(e) => Object.assign(e.target.style, { ...styles.inputBlur, fontSize: '22px', fontWeight: '800', letterSpacing: '8px', textAlign: 'center', fontFamily: "'Courier New', monospace" })}
                     autoFocus
                   />
                   <div style={{ fontSize: '12px', color: '#94a3b8', textAlign: 'center' }}>

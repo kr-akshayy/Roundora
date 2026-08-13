@@ -143,7 +143,7 @@ function generateOtpEmailHtml(otp: string, email: string): string {
                 <tr>
                   <td align="center" style="background:linear-gradient(135deg,rgba(79,70,229,0.2),rgba(124,58,237,0.2));border:1.5px solid rgba(99,102,241,0.5);border-radius:18px;padding:28px 20px;">
                     <p style="margin:0 0 10px 0;color:#8b8fa8;font-size:12px;font-weight:700;letter-spacing:3px;text-transform:uppercase;">Verification Code</p>
-                    <p style="margin:0;color:#ffffff;font-size:48px;font-weight:900;letter-spacing:16px;font-family:'Courier New',monospace;line-height:1.2;">${otp}</p>
+                    <p style="margin:0;color:#ffffff;font-size:36px;font-weight:900;letter-spacing:10px;font-family:'Courier New',monospace;line-height:1.2;">${otp}</p>
                     <p style="margin:12px 0 0 0;color:#6b7280;font-size:13px;">Expires in <strong style="color:#f59e0b;">10 minutes</strong></p>
                   </td>
                 </tr>
