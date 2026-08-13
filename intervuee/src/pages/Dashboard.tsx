@@ -362,6 +362,7 @@ function getDayLabel(dateStr: string) {
 }
 
 function MentorDashboard({ userId, mentorProfileId, expertise }: { userId: string; mentorProfileId: string; expertise: string[] }) {
+  const { profile } = useAuthStore();
   const [slots, setSlots] = useState<Slot[]>([]);
   const [bookings, setBookings] = useState<Booking[]>([]);
   const [loading, setLoading] = useState(true);
