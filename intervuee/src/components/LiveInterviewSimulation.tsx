@@ -1,38 +1,57 @@
 import { useEffect, useState } from 'react';
-import { Video, Mic, Code2, Cpu, CheckCircle2, Sparkles, Activity, Timer, ShieldCheck, Play } from 'lucide-react';
+import { Video, Mic, Code2, Cpu, CheckCircle2, Sparkles, Activity, Timer, ShieldCheck, Play, Award, Briefcase, PartyPopper, Check, ChevronRight } from 'lucide-react';
 
-const ROUNDS_DATA = [
+const STORY_STEPS = [
   {
-    title: 'Round: System Design',
-    codeSnippet: 'const cache = new RedisCluster({\n  strategy: "LRU",\n  maxMemory: "16GB",\n  shards: 3\n});',
-    diagram: 'Client ➔ Load Balancer ➔ Redis ➔ Postgres DB',
-    speech: 'Interviewer: "How do you handle cache invalidation during peak traffic?"',
+    stepNumber: '01',
+    badge: 'Step 1: Practice Online at Home',
+    title: '🏠 1-on-1 Practice From Home',
+    desc: 'Student books a slot and practices live mock interview with ex-Amazon Staff Engineer.',
+    type: 'video_call',
+    videoUrl: 'https://assets.mixkit.co/videos/preview/mixkit-young-woman-working-on-a-laptop-42861-large.mp4',
+    mentorVideoUrl: 'https://assets.mixkit.co/videos/preview/mixkit-man-having-a-video-call-on-laptop-42930-large.mp4',
+    roundTitle: 'Round 1: System Design & Coding',
+    speech: 'Mentor: "Great logic! Let\'s optimize memory complexity now."',
   },
   {
-    title: 'Round: Data Structures & Algorithms',
-    codeSnippet: 'function minWindowSubstring(s, t) {\n  let map = new Map(), count = t.length;\n  // Sliding Window O(N) solution...\n}',
-    diagram: 'Array ➔ Sliding Window [L, R] ➔ Min Hash Match',
-    speech: 'Interviewer: "Great! Can we optimize space complexity to O(1)?"',
+    stepNumber: '02',
+    badge: 'Step 2: Instant Feedback & Rating',
+    title: '⚡ Detailed Scorecard Received',
+    desc: 'Within 2 hours, candidate receives structured feedback on DSA, System Design & Soft Skills.',
+    type: 'scorecard',
+    score: 94,
+    strengths: ['DSA Optimization: 9.5/10', 'System Architecture: 9/10', 'Communication: 9.8/10'],
+    speech: 'AI Feedback: "Ready for Tier-1 Tech Interviews!"',
   },
   {
-    title: 'Round: Backend Architecture',
-    codeSnippet: 'app.post("/v1/booking/confirm", async (req, res) => {\n  const session = await db.transaction(...);\n});',
-    diagram: 'API Gateway ➔ Kafka Queue ➔ Worker Node',
-    speech: 'Interviewer: "How would you structure idempotency for retry calls?"',
+    stepNumber: '03',
+    badge: 'Step 3: Real Company Interview',
+    title: '🏢 Facing Google / Meta Interview',
+    desc: 'Armed with practice & confidence, student solves real interview rounds effortlessly.',
+    type: 'real_interview',
+    videoUrl: 'https://assets.mixkit.co/videos/preview/mixkit-man-having-a-video-call-on-laptop-42930-large.mp4',
+    roundTitle: 'Final Technical Round',
+    speech: 'Interviewer: "Impressive solution! You covered all edge cases."',
+  },
+  {
+    stepNumber: '04',
+    badge: 'Step 4: Offer Letter Secured!',
+    title: '🎉 Dream Job Offer Cracked!',
+    desc: 'Student receives official offer letter: ₹24 LPA Senior Software Engineer!',
+    type: 'offer_letter',
+    company: 'Top Tech Company',
+    packageText: '₹24 LPA · Senior Software Engineer',
+    speech: 'HR: "Congratulations! We are excited to extend an offer!"',
   },
 ];
 
-// High quality video streams representing interviewer and candidate in live video call
-const MENTOR_VIDEO_URL = 'https://assets.mixkit.co/videos/preview/mixkit-man-having-a-video-call-on-laptop-42930-large.mp4';
-const STUDENT_VIDEO_URL = 'https://assets.mixkit.co/videos/preview/mixkit-young-woman-working-on-a-laptop-42861-large.mp4';
-
 export default function LiveInterviewSimulation() {
-  const [roundIdx, setRoundIdx] = useState(0);
-  const [seconds, setSeconds] = useState(1934); // 32:14 in seconds
+  const [stepIdx, setStepIdx] = useState(0);
+  const [seconds, setSeconds] = useState(1934);
   const [typedText, setTypedText] = useState('');
   const [isTyping, setIsTyping] = useState(true);
 
-  // Timer increment every second
+  // Timer increment
   useEffect(() => {
     const timerInterval = setInterval(() => {
       setSeconds((prev) => prev + 1);
@@ -40,21 +59,20 @@ export default function LiveInterviewSimulation() {
     return () => clearInterval(timerInterval);
   }, []);
 
-  // Round switcher every 7 seconds
+  // Step Switcher every 6.5 seconds
   useEffect(() => {
-    const roundInterval = setInterval(() => {
-      setRoundIdx((prev) => (prev + 1) % ROUNDS_DATA.length);
-    }, 7000);
-    return () => clearInterval(roundInterval);
+    const stepInterval = setInterval(() => {
+      setStepIdx((prev) => (prev + 1) % STORY_STEPS.length);
+    }, 6500);
+    return () => clearInterval(stepInterval);
   }, []);
 
-  // Typewriter effect for code snippet
+  // Typewriter code simulation
   useEffect(() => {
-    const fullText = ROUNDS_DATA[roundIdx].codeSnippet;
+    const fullText = 'const system = new LoadBalancer({\n  strategy: "ConsistentHashing",\n  replicas: 5\n});';
     setTypedText('');
     setIsTyping(true);
     let i = 0;
-
     const typingInterval = setInterval(() => {
       if (i <= fullText.length) {
         setTypedText(fullText.slice(0, i));
@@ -63,12 +81,11 @@ export default function LiveInterviewSimulation() {
         setIsTyping(false);
         clearInterval(typingInterval);
       }
-    }, 45);
-
+    }, 50);
     return () => clearInterval(typingInterval);
-  }, [roundIdx]);
+  }, [stepIdx]);
 
-  const currentRound = ROUNDS_DATA[roundIdx];
+  const currentStep = STORY_STEPS[stepIdx];
 
   const formatTimer = (totalSeconds: number) => {
     const m = Math.floor(totalSeconds / 60);
@@ -78,191 +95,200 @@ export default function LiveInterviewSimulation() {
 
   return (
     <div className="relative group">
-      {/* Main Glass Card Container */}
+      {/* Container */}
       <div className="card p-5 shadow-2xl bg-gradient-to-b from-slate-900 via-slate-900 to-indigo-950 text-white border border-slate-800 rounded-3xl relative overflow-hidden transition-all duration-500 hover:shadow-brand-500/10">
         
-        {/* Top Live Bar */}
-        <div className="flex items-center justify-between mb-3 text-xs">
-          <div className="flex items-center gap-2">
-            <span className="relative flex h-2.5 w-2.5">
-              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-rose-400 opacity-75"></span>
-              <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-rose-500"></span>
-            </span>
-            <span className="font-bold tracking-wide text-rose-400 uppercase text-[11px] flex items-center gap-1">
-              <Video size={13} className="text-rose-500" /> Live Interview Call (Playing Video)
-            </span>
-          </div>
+        {/* Top Story Stepper Progress Bar */}
+        <div className="mb-4">
+          <div className="flex items-center justify-between text-xs mb-2">
+            <div className="flex items-center gap-2">
+              <span className="relative flex h-2.5 w-2.5">
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-rose-400 opacity-75"></span>
+                <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-rose-500"></span>
+              </span>
+              <span className="font-bold tracking-wide text-rose-400 uppercase text-[11px] flex items-center gap-1">
+                Student Success Journey (Continuous Animation Loop)
+              </span>
+            </div>
 
-          <div className="flex items-center gap-3">
-            <span className="flex items-center gap-1 text-[11px] text-emerald-400 bg-emerald-500/15 border border-emerald-500/30 px-2 py-0.5 rounded-full font-medium">
-              <Activity size={12} className="animate-pulse" /> HD Audio 48kHz
-            </span>
             <span className="flex items-center gap-1 text-slate-300 font-mono text-xs font-semibold bg-white/10 px-2.5 py-0.5 rounded-lg border border-white/10">
               <Timer size={12} className="text-amber-400" /> {formatTimer(seconds)}
             </span>
           </div>
+
+          {/* Stepper Tabs */}
+          <div className="grid grid-cols-4 gap-1.5 bg-slate-950/80 p-1.5 rounded-xl border border-white/10">
+            {STORY_STEPS.map((s, idx) => {
+              const active = idx === stepIdx;
+              return (
+                <button
+                  key={s.stepNumber}
+                  onClick={() => setStepIdx(idx)}
+                  className={`py-1.5 px-2 rounded-lg text-[10.5px] font-bold transition-all text-center truncate ${
+                    active
+                      ? 'bg-gradient-to-r from-brand-600 to-indigo-600 text-white shadow-md scale-[1.02]'
+                      : 'text-slate-400 hover:text-slate-200 hover:bg-white/5'
+                  }`}
+                >
+                  {s.stepNumber}. {s.badge.split(':')[0]}
+                </button>
+              );
+            })}
+          </div>
         </div>
 
-        {/* Video Simulation Display Screen Container */}
-        <div className="aspect-[16/10] sm:aspect-video rounded-2xl bg-slate-950 border border-slate-800 relative overflow-hidden flex flex-col justify-between p-3.5 mb-4 group/screen shadow-2xl">
+        {/* Dynamic Animated Screen Container */}
+        <div className="aspect-[16/10] sm:aspect-video rounded-2xl bg-slate-950 border border-slate-800 relative overflow-hidden flex flex-col justify-between p-4 mb-4 shadow-2xl group/screen">
           
-          {/* BACKGROUND LOOPING VIDEO (Interviewer Feed Background) */}
-          <video
-            autoPlay
-            loop
-            muted
-            playsInline
-            className="absolute inset-0 w-full h-full object-cover opacity-40 pointer-events-none scale-105 filter brightness-90"
-            src={MENTOR_VIDEO_URL}
+          {/* Subtle Grid Background */}
+          <div
+            className="absolute inset-0 opacity-20 pointer-events-none"
+            style={{
+              backgroundImage: 'radial-gradient(#6366f1 1px, transparent 1px)',
+              backgroundSize: '16px 16px',
+            }}
           />
 
-          {/* Dark Overlay gradient */}
-          <div className="absolute inset-0 bg-gradient-to-t from-slate-950 via-slate-950/60 to-slate-950/80 pointer-events-none" />
-
-          {/* Top Video Header Overlay */}
+          {/* Header Overlay */}
           <div className="relative z-10 flex items-center justify-between flex-wrap gap-2">
-            <div className="flex items-center gap-2 bg-slate-900/90 backdrop-blur-md px-3 py-1 rounded-xl border border-white/15 shadow-lg">
+            <div className="flex items-center gap-2 bg-slate-900/90 backdrop-blur-md px-3 py-1 rounded-xl border border-white/15 shadow-md">
               <Sparkles size={13} className="text-amber-400 animate-spin" style={{ animationDuration: '6s' }} />
-              <span className="text-xs font-bold text-amber-200 transition-all duration-300">
-                {currentRound.title}
+              <span className="text-xs font-bold text-amber-200">
+                {currentStep.badge}
               </span>
             </div>
 
-            <div className="flex items-center gap-1.5 bg-emerald-950/90 backdrop-blur-md px-2.5 py-1 rounded-xl border border-emerald-500/30 text-[11px] text-emerald-300 font-semibold shadow-md">
-              <CheckCircle2 size={12} className="text-emerald-400" /> Live AI Feedback Active
+            <div className="flex items-center gap-1.5 bg-brand-950/90 backdrop-blur-md px-2.5 py-1 rounded-xl border border-brand-500/30 text-[11px] text-brand-300 font-semibold shadow-md">
+              <Activity size={12} className="animate-pulse text-emerald-400" /> Stage {stepIdx + 1} of 4
             </div>
           </div>
 
-          {/* Center Stage: Split Screen Live Playing Videos */}
-          <div className="relative z-10 grid grid-cols-1 sm:grid-cols-2 gap-3 my-auto py-1">
-            
-            {/* Left Box: Mentor Live Video Feed (Ex-Amazon Staff Eng) */}
-            <div className="relative bg-slate-900/90 border border-indigo-500/40 rounded-xl p-3 shadow-2xl flex flex-col justify-between overflow-hidden min-h-[120px]">
-              {/* Actual Video Feed of Mentor */}
-              <video
-                autoPlay
-                loop
-                muted
-                playsInline
-                className="absolute inset-0 w-full h-full object-cover opacity-65 pointer-events-none transition-opacity duration-300 group-hover/screen:opacity-80"
-                src={MENTOR_VIDEO_URL}
-              />
-              <div className="absolute inset-0 bg-slate-950/40 pointer-events-none" />
+          {/* STEP CONTENT TYPES */}
+          <div className="relative z-10 my-auto py-2">
+            {/* STAGE 1: Home Practice Video Call */}
+            {currentStep.type === 'video_call' && (
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div className="relative bg-slate-900/90 border border-indigo-500/40 rounded-xl p-3 shadow-2xl min-h-[125px] flex flex-col justify-between overflow-hidden">
+                  <video autoPlay loop muted playsInline className="absolute inset-0 w-full h-full object-cover opacity-60" src={currentStep.mentorVideoUrl} />
+                  <div className="absolute inset-0 bg-slate-950/40" />
+                  <div className="relative z-10 flex items-center justify-between text-[10px] text-white font-bold bg-indigo-600/90 px-2 py-0.5 rounded w-max">
+                    <Play size={9} className="fill-white" /> EX-AMAZON MENTOR
+                  </div>
+                  <div className="relative z-10 mt-auto bg-slate-950/85 backdrop-blur-md p-1.5 rounded-lg border border-white/10 text-[10px] italic text-slate-200">
+                    "{currentStep.speech}"
+                  </div>
+                </div>
 
-              {/* Speaker Waveform animation */}
-              <div className="relative z-10 flex items-center justify-between mb-2">
-                <span className="text-[10px] font-bold text-white bg-indigo-600/90 backdrop-blur-md px-2 py-0.5 rounded-md border border-white/20 shadow-sm flex items-center gap-1">
-                  <Play size={9} className="fill-white" /> INTERVIEWER
-                </span>
-
-                <div className="flex items-end gap-0.5 h-3.5 bg-slate-950/80 px-1.5 py-0.5 rounded-full border border-white/10">
-                  <span className="w-1 bg-emerald-400 rounded-full animate-bounce h-2" style={{ animationDelay: '0.1s' }} />
-                  <span className="w-1 bg-emerald-400 rounded-full animate-bounce h-3.5" style={{ animationDelay: '0.3s' }} />
-                  <span className="w-1 bg-emerald-400 rounded-full animate-bounce h-1.5" style={{ animationDelay: '0.2s' }} />
+                <div className="relative bg-slate-900/90 border border-emerald-500/40 rounded-xl p-3 shadow-2xl min-h-[125px] flex flex-col justify-between overflow-hidden">
+                  <video autoPlay loop muted playsInline className="absolute inset-0 w-full h-full object-cover opacity-65" src={currentStep.videoUrl} />
+                  <div className="absolute inset-0 bg-slate-950/40" />
+                  <div className="relative z-10 text-[10px] font-bold text-white bg-emerald-600/90 px-2 py-0.5 rounded w-max">
+                    💻 STUDENT AT HOME
+                  </div>
+                  <div className="relative z-10 mt-auto bg-slate-950/90 backdrop-blur-md p-2 rounded-lg font-mono text-[9px] text-emerald-300 border border-white/10">
+                    {typedText}
+                    {isTyping && <span className="animate-ping inline-block w-1.5 h-3 bg-brand-400 ml-0.5" />}
+                  </div>
                 </div>
               </div>
+            )}
 
-              <div className="relative z-10 mt-auto">
-                <div className="flex items-center gap-2 mb-1">
-                  <div className="w-7 h-7 rounded-full bg-indigo-600 text-white font-bold text-[10px] flex items-center justify-center border border-white/30 shadow-md">
-                    RS
-                  </div>
-                  <div>
-                    <div className="text-xs font-bold text-white flex items-center gap-1 drop-shadow-sm">
-                      Rohan S. <ShieldCheck size={11} className="text-emerald-400 shrink-0" />
+            {/* STAGE 2: Scorecard & Feedback */}
+            {currentStep.type === 'scorecard' && (
+              <div className="bg-slate-900/95 border border-indigo-500/40 rounded-2xl p-4 shadow-2xl text-center max-w-md mx-auto animate-fadeIn">
+                <div className="flex items-center justify-center gap-2 mb-2">
+                  <Award size={24} className="text-amber-400 animate-bounce" />
+                  <span className="text-2xl font-extrabold text-white">Score: {currentStep.score}/100</span>
+                </div>
+                <div className="space-y-1.5 mb-3">
+                  {currentStep.strengths?.map((str) => (
+                    <div key={str} className="flex items-center justify-center gap-1.5 text-xs text-emerald-300 font-semibold bg-emerald-950/60 p-1.5 rounded-lg border border-emerald-500/30">
+                      <Check size={13} /> {str}
                     </div>
-                    <div className="text-[9.5px] text-indigo-200 font-medium drop-shadow-sm">Staff Eng, ex-Amazon</div>
-                  </div>
+                  ))}
                 </div>
-
-                <div className="bg-slate-950/85 backdrop-blur-md p-1.5 rounded-lg border border-white/10 text-[10.5px] text-slate-200 italic min-h-[30px] flex items-center shadow-md">
-                  "{currentRound.speech}"
+                <div className="text-xs italic text-indigo-200 bg-indigo-950/80 p-2 rounded-lg border border-indigo-500/30">
+                  "{currentStep.speech}"
                 </div>
               </div>
-            </div>
+            )}
 
-            {/* Right Box: Student Live Video Feed + Live Code Overlay */}
-            <div className="relative bg-slate-900/90 border border-emerald-500/40 rounded-xl p-3 shadow-2xl flex flex-col justify-between overflow-hidden min-h-[120px]">
-              {/* Actual Video Feed of Student */}
-              <video
-                autoPlay
-                loop
-                muted
-                playsInline
-                className="absolute inset-0 w-full h-full object-cover opacity-60 pointer-events-none transition-opacity duration-300 group-hover/screen:opacity-75"
-                src={STUDENT_VIDEO_URL}
-              />
-              <div className="absolute inset-0 bg-slate-950/50 pointer-events-none" />
-
-              <div className="relative z-10 flex items-center justify-between text-[10px] text-slate-300 mb-1">
-                <span className="text-[10px] font-bold text-white bg-emerald-600/90 backdrop-blur-md px-2 py-0.5 rounded-md border border-white/20 shadow-sm flex items-center gap-1">
-                  <Code2 size={10} /> CANDIDATE (STUDENT)
-                </span>
-                <span className="flex items-center gap-1 text-emerald-300 font-semibold bg-slate-950/80 px-2 py-0.5 rounded-full border border-emerald-500/30">
-                  <Cpu size={10} /> System Diagram
-                </span>
+            {/* STAGE 3: Real Company Interview */}
+            {currentStep.type === 'real_interview' && (
+              <div className="relative bg-slate-900/90 border border-purple-500/40 rounded-2xl p-4 shadow-2xl min-h-[140px] flex flex-col justify-between overflow-hidden">
+                <video autoPlay loop muted playsInline className="absolute inset-0 w-full h-full object-cover opacity-60" src={currentStep.videoUrl} />
+                <div className="absolute inset-0 bg-gradient-to-t from-slate-950 via-slate-950/50 to-transparent" />
+                <div className="relative z-10 flex items-center justify-between">
+                  <span className="text-xs font-bold text-white bg-purple-600 px-3 py-1 rounded-lg flex items-center gap-1 shadow-md">
+                    <Briefcase size={13} /> REAL TECH COMPANY INTERVIEW
+                  </span>
+                  <span className="text-xs text-emerald-400 font-bold bg-emerald-950/80 px-2.5 py-1 rounded-lg border border-emerald-500/30">
+                    Confidence: 100%
+                  </span>
+                </div>
+                <div className="relative z-10 mt-auto bg-slate-950/90 backdrop-blur-md p-2.5 rounded-xl border border-white/10 text-xs italic text-purple-200">
+                  "{currentStep.speech}"
+                </div>
               </div>
+            )}
 
-              {/* Animated Typing Code Block Overlay */}
-              <div className="relative z-10 bg-slate-950/90 backdrop-blur-md p-2 rounded-lg font-mono text-[9.5px] text-emerald-300 leading-relaxed overflow-hidden min-h-[50px] border border-white/10 shadow-lg mt-auto">
-                <pre className="whitespace-pre-wrap font-mono">
-                  {typedText}
-                  {isTyping && <span className="animate-ping inline-block w-1.5 h-3 bg-brand-400 ml-0.5" />}
-                </pre>
+            {/* STAGE 4: Offer Letter Secured */}
+            {currentStep.type === 'offer_letter' && (
+              <div className="bg-gradient-to-r from-emerald-950 via-slate-900 to-indigo-950 border-2 border-emerald-500/50 rounded-2xl p-5 shadow-2xl text-center max-w-md mx-auto animate-pulse">
+                <div className="w-12 h-12 bg-emerald-500/20 text-emerald-400 rounded-full flex items-center justify-center mx-auto mb-2 border border-emerald-400/40">
+                  <PartyPopper size={26} />
+                </div>
+                <h3 className="text-xl font-extrabold text-white mb-1">🎉 Job Offer Secured!</h3>
+                <div className="inline-block bg-emerald-500 text-slate-950 font-black text-sm px-4 py-1.5 rounded-xl shadow-lg mb-2">
+                  {currentStep.packageText}
+                </div>
+                <p className="text-xs text-emerald-200 italic font-medium">
+                  "{currentStep.speech}"
+                </p>
               </div>
-
-              {/* Diagram Node Pill */}
-              <div className="relative z-10 mt-1 text-[9px] font-mono text-indigo-200 bg-indigo-950/90 backdrop-blur-md px-2 py-0.5 rounded border border-indigo-500/30 truncate shadow-sm">
-                Architecture: {currentRound.diagram}
-              </div>
-            </div>
+            )}
           </div>
 
-          {/* Bottom Overlay Status */}
-          <div className="relative z-10 flex items-center justify-between text-[11px] text-slate-300 border-t border-white/10 pt-2 flex-wrap gap-2">
+          {/* Bottom Step Description */}
+          <div className="relative z-10 flex items-center justify-between text-xs text-slate-300 border-t border-white/10 pt-2.5 flex-wrap gap-2">
             <div className="flex items-center gap-2">
-              <span className="flex items-center gap-1 text-slate-200 font-semibold">
-                <Mic size={11} className="text-emerald-400" /> Active Mic
-              </span>
-              <span>•</span>
-              <span className="text-indigo-300 font-medium">Student Giving Mock Interview</span>
+              <span className="font-bold text-white">{currentStep.title}:</span>
+              <span className="text-slate-400 hidden sm:inline">{currentStep.desc}</span>
             </div>
-            <span className="bg-rose-500/20 border border-rose-400/40 text-rose-300 px-2 py-0.5 rounded text-[10px] font-extrabold flex items-center gap-1">
-              <Play size={9} className="fill-rose-400 animate-pulse" /> Playing Video Loop 🔄
-            </span>
+            <button
+              onClick={() => setStepIdx((prev) => (prev + 1) % STORY_STEPS.length)}
+              className="text-indigo-400 hover:text-indigo-300 font-bold text-xs flex items-center gap-0.5"
+            >
+              Next Step <ChevronRight size={14} />
+            </button>
           </div>
         </div>
 
-        {/* Footer Info of Mentor Card */}
+        {/* Footer Info */}
         <div className="flex items-center justify-between pt-1">
           <div className="flex items-center gap-2.5">
-            <div className="w-8 h-8 rounded-full bg-purple-600 text-white font-bold flex items-center justify-center text-xs shadow-md border border-purple-400">
-              RS
+            <div className="w-8 h-8 rounded-full bg-emerald-600 text-white font-bold flex items-center justify-center text-xs shadow-md border border-emerald-400">
+              100%
             </div>
             <div>
-              <div className="text-sm font-bold text-white flex items-center gap-1">
-                Rohan S.
-                <span className="text-[10px] font-bold text-amber-400 bg-amber-500/15 border border-amber-500/30 px-1.5 py-0.2 rounded-full">
-                  ★ 4.9
-                </span>
-              </div>
-              <div className="text-xs text-slate-400">Staff Eng, ex-Amazon</div>
+              <div className="text-sm font-bold text-white">From Home Practice ➔ To Job Offer</div>
+              <div className="text-xs text-slate-400">10,000+ Mock Interviews Completed</div>
             </div>
           </div>
 
           <span className="flex items-center gap-1 text-xs text-emerald-300 bg-emerald-500/15 border border-emerald-500/30 rounded-full px-3 py-1 font-semibold">
-            <ShieldCheck size={12} /> Verified Mentor
+            <ShieldCheck size={12} /> Verified Outcomes
           </span>
         </div>
       </div>
 
-      {/* Floating Badge at Bottom-Right */}
+      {/* Floating Badge */}
       <div className="absolute -bottom-4 -right-4 card px-4 py-3 shadow-2xl bg-white text-slate-900 border border-slate-200 hidden sm:block animate-bounce" style={{ animationDuration: '4s' }}>
         <div className="flex items-center gap-2 text-xs font-bold text-slate-900">
-          <Code2 size={15} className="text-emerald-600 shrink-0" />
-          <span>Feedback sent</span>
+          <PartyPopper size={16} className="text-emerald-600 shrink-0" />
+          <span>Success Story</span>
         </div>
-        <div className="text-[11px] text-slate-500 mt-0.5 font-medium">within 2 hours after call</div>
+        <div className="text-[11px] text-slate-500 mt-0.5 font-medium">Practice at Home ➔ Land SDE Job</div>
       </div>
     </div>
   );
