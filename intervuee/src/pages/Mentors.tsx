@@ -138,14 +138,12 @@ export default function Mentors() {
                   </div>
                 </div>
 
-                {rating && (
-                  <div className="flex items-center gap-1.5 mb-3">
-                    <StarRating rating={rating.avg} size={13} />
-                    <span className="text-xs text-slate-500">
-                      {rating.avg.toFixed(1)} ({rating.count})
-                    </span>
-                  </div>
-                )}
+                <div className="flex items-center gap-1.5 mb-3">
+                  <StarRating rating={rating ? rating.avg : 5.0} size={14} />
+                  <span className="text-xs font-bold text-slate-400">
+                    {rating ? `${rating.avg.toFixed(1)} (${rating.count})` : '5.0 ★ (New)'}
+                  </span>
+                </div>
 
                 {m.expertise && m.expertise.length > 0 && (
                   <div className="flex flex-wrap gap-1.5 mb-3">

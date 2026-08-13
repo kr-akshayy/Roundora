@@ -358,14 +358,12 @@ export default function MentorProfile() {
               <div style={{ fontSize: '14px', color: '#64748b', marginBottom: '8px' }}>
                 {mentor.headline ?? 'Interviewer'}
               </div>
-              {avgRating !== null && (
-                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px' }}>
-                  <StarRating rating={avgRating} size={15} />
-                  <span style={{ fontSize: '13px', color: '#94a3b8' }}>
-                    {avgRating.toFixed(1)} ({reviews.length} review{reviews.length !== 1 ? 's' : ''})
-                  </span>
-                </div>
-              )}
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px' }}>
+                <StarRating rating={avgRating ?? 5.0} size={16} />
+                <span style={{ fontSize: '13px', color: '#475569', fontWeight: '700' }}>
+                  {avgRating !== null ? `${avgRating.toFixed(1)} (${reviews.length} review${reviews.length !== 1 ? 's' : ''})` : '5.0 ★ (New Interviewer)'}
+                </span>
+              </div>
               <div style={{ display: 'flex', alignItems: 'center', gap: '16px', flexWrap: 'wrap' }}>
                 {mentor.company && (
                   <span style={{ fontSize: '13px', color: '#64748b', display: 'flex', alignItems: 'center', gap: '5px' }}>

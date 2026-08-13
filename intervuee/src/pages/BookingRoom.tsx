@@ -416,8 +416,26 @@ export default function BookingRoom() {
                   </a>
                 </div>
 
+                {/* Misbehaviour / Urgent Issue Alert Box */}
+                <div className="mt-4 p-4 rounded-xl bg-rose-50 border border-rose-200/90 text-left">
+                  <div className="flex items-center gap-2 text-rose-800 font-bold text-xs mb-1">
+                    <span>🚨</span> Report Misbehaviour / Abuse
+                  </div>
+                  <p className="text-[11px] text-rose-700 leading-normal mb-2.5">
+                    If the interviewer or student engaged in inappropriate conduct or guidelines violation, report it directly to Admin.
+                  </p>
+                  <a
+                    href={`https://wa.me/91${TEAM_CONTACT_NUMBER}?text=URGENT%3A%20Misbehaviour%20Report%20for%20Session%20ID%3A%20${bookingId}%20%7C%20Participant%3A%20${encodeURIComponent(otherPerson?.full_name ?? '')}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center justify-center w-full py-2 bg-rose-600 hover:bg-rose-700 text-white font-bold text-xs rounded-lg shadow-sm transition-colors"
+                  >
+                    🚩 Report Misbehaviour ({TEAM_CONTACT_NUMBER})
+                  </a>
+                </div>
+
                 {/* Return button */}
-                <div className="mt-5 pt-4 border-t border-slate-200/80">
+                <div className="mt-4 pt-3 border-t border-slate-200/80">
                   <Link
                     to="/dashboard"
                     className="btn-secondary w-full justify-center !py-2.5 text-xs font-bold"
