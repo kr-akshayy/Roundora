@@ -1,5 +1,6 @@
 import { useEffect } from 'react';
 import { Routes, Route, useLocation } from 'react-router-dom';
+import PwaInstallBanner from './components/PwaInstallBanner';
 import Navbar from './components/Navbar';
 import ProtectedRoute from './components/ProtectedRoute';
 import Landing from './pages/Landing';
@@ -31,6 +32,7 @@ export default function App() {
 
   return (
     <div className="min-h-screen flex flex-col">
+      <PwaInstallBanner />
       {showNavbar && <Navbar />}
       <main className="flex-1">
         <Routes>
