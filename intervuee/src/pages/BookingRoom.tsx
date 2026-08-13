@@ -395,25 +395,6 @@ export default function BookingRoom() {
                       Chat →
                     </span>
                   </a>
-
-                  {/* Email Support */}
-                  <a
-                    href={`mailto:${TEAM_CONTACT_EMAIL}?subject=Support%20Request%20for%20Session%20${bookingId}&body=Hi%20Roundora%20Team%2C%0A%0AI%20need%20assistance%20regarding%20my%20session.%0A%0APhone%3A%20${TEAM_CONTACT_NUMBER}`}
-                    className="flex items-center justify-between p-3 rounded-xl bg-white border border-slate-200 hover:border-indigo-400 hover:bg-indigo-50/30 transition-all text-slate-800 text-xs font-semibold group shadow-sm"
-                  >
-                    <div className="flex items-center gap-2.5">
-                      <div className="w-8 h-8 rounded-lg bg-indigo-100 text-indigo-700 flex items-center justify-center shrink-0">
-                        <Mail size={16} />
-                      </div>
-                      <div>
-                        <div className="text-slate-900 font-bold">Email Support Team</div>
-                        <div className="text-[11px] text-slate-500">{TEAM_CONTACT_EMAIL}</div>
-                      </div>
-                    </div>
-                    <span className="text-indigo-600 group-hover:translate-x-1 transition-transform font-bold text-[11px]">
-                      Mail Us →
-                    </span>
-                  </a>
                 </div>
 
                 {/* Misbehaviour / Urgent Issue Alert Box */}
