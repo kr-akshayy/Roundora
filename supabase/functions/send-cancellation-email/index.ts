@@ -1,4 +1,4 @@
-﻿// Supabase Edge Function: send-cancellation-email
+// Supabase Edge Function: send-cancellation-email
 // This function:
 // 1. Accepts cancellation payload (studentEmail, studentName, mentorName, sessionTime, topic)
 // 2. Sends a branded HTML cancellation notification to the student via Resend API
@@ -45,9 +45,9 @@ Deno.serve(async (req: Request) => {
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        from: Deno.env.get('FROM_EMAIL') ?? 'Roundora <noreply@roundora.in>',
+        from: fromEmail,
         to: [studentEmail.trim()],
-        subject: `⚠️ Session Cancelled - Roundora`,
+        subject: `⚠️ Your Interview Session Has Been Cancelled - Roundora`,
         html: emailHtml,
       }),
     });
@@ -116,7 +116,8 @@ function generateCancellationEmailHtml(data: {
             <td style="padding:36px 40px;background:#ffffff;">
               <p style="color:#374151;font-size:15px;margin:0 0 20px;line-height:1.6;">
                 Hi <strong>${data.studentName}</strong>,<br/><br/>
-                We regret to inform you that your upcoming 1-on-1 session with <strong>${data.mentorName}</strong> has been cancelled by the mentor.
+                We want to inform you that your scheduled mock interview session with <strong>${data.mentorName}</strong> has been <strong>cancelled</strong>. We sincerely apologize for any inconvenience this may have caused.<br/><br/>
+                Your session will be <strong>rescheduled at the earliest opportunity</strong>. Please browse our available mentors to book a new session at your preferred time.
               </p>
 
               <!-- Session Details Box -->
@@ -143,9 +144,11 @@ function generateCancellationEmailHtml(data: {
               </table>
 
               <!-- Action Call out -->
-              <p style="color:#475569;font-size:14px;margin:0 0 24px;line-height:1.6;">
-                Don't worry! You can easily explore other available expert mentors and book a new session at your preferred time.
-              </p>
+              <div style="background:#fefce8;border:1px solid #fde047;border-radius:12px;padding:16px 20px;margin-bottom:24px;">
+                <p style="color:#713f12;font-size:14px;margin:0;line-height:1.6;font-weight:600;">
+                  ✅ Don't worry — your journey continues! Browse our expert interviewers and book a new session at your convenience.
+                </p>
+              </div>
 
               <!-- CTA Button -->
               <div style="text-align:center;margin-bottom:28px;">
