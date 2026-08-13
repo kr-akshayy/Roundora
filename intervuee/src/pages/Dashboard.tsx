@@ -126,6 +126,53 @@ function StudentDashboard({ userId }: { userId: string }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [userId]);
 
+  const sendCancellationEmail = async (booking: Booking, cancelledBy: 'mentor' | 'student') => {
+    try {
+      let studentEmail = booking.student?.email;
+      if (!studentEmail && booking.student_id) {
+        const { data: p } = await supabase.from('profiles').select('email').eq('id', booking.student_id).single();
+        if (p?.email) studentEmail = p.email;
+      }
+
+      if (!studentEmail) {
+        console.warn('No student email found for cancellation notification');
+        return;
+      }
+
+      const slotDate = booking.slot?.start_time ? new Date(booking.slot.start_time) : new Date();
+      const timeStr = slotDate.toLocaleString('en-IN', {
+        weekday: 'short',
+        month: 'short',
+        day: 'numeric',
+        year: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit',
+        hour12: true,
+      });
+
+      const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
+      const SUPABASE_ANON_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY;
+
+      await fetch(`${SUPABASE_URL}/functions/v1/send-cancellation-email`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${SUPABASE_ANON_KEY}`,
+        },
+        body: JSON.stringify({
+          studentEmail: studentEmail.trim(),
+          studentName: booking.student?.full_name || 'Student',
+          mentorName: booking.mentor?.full_name || 'Interviewer',
+          sessionTime: timeStr,
+          topic: booking.slot?.topic ? topicLabel(booking.slot.topic) : '1-on-1 Interview',
+          cancelledBy,
+        }),
+      });
+    } catch (err) {
+      console.error('Failed to send cancellation email:', err);
+    }
+  };
+
   const handleCancelBooking = async (booking: Booking) => {
     setCancellingId(booking.id);
     await supabase.from('bookings').update({ status: 'cancelled' }).eq('id', booking.id);
@@ -133,6 +180,8 @@ function StudentDashboard({ userId }: { userId: string }) {
     if (booking.slot_id) {
       await supabase.from('slots').update({ is_booked: false }).eq('id', booking.slot_id);
     }
+    // Send email notification to student
+    await sendCancellationEmail(booking, 'student');
     setCancellingId(null);
     fetchData();
   };
@@ -391,6 +440,67 @@ function MentorDashboard({ userId, mentorProfileId, expertise }: { userId: strin
     fetchData();
   };
 
+  const [cancellingBookingId, setCancellingBookingId] = useState<string | null>(null);
+
+  const sendCancellationEmailToStudent = async (booking: Booking) => {
+    try {
+      let studentEmail = booking.student?.email;
+      if (!studentEmail && booking.student_id) {
+        const { data: p } = await supabase.from('profiles').select('email').eq('id', booking.student_id).single();
+        if (p?.email) studentEmail = p.email;
+      }
+
+      if (!studentEmail) return;
+
+      const slotDate = booking.slot?.start_time ? new Date(booking.slot.start_time) : new Date();
+      const timeStr = slotDate.toLocaleString('en-IN', {
+        weekday: 'short',
+        month: 'short',
+        day: 'numeric',
+        year: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit',
+        hour12: true,
+      });
+
+      const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
+      const SUPABASE_ANON_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY;
+
+      await fetch(`${SUPABASE_URL}/functions/v1/send-cancellation-email`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${SUPABASE_ANON_KEY}`,
+        },
+        body: JSON.stringify({
+          studentEmail: studentEmail.trim(),
+          studentName: booking.student?.full_name || 'Student',
+          mentorName: profile?.full_name || 'Interviewer',
+          sessionTime: timeStr,
+          topic: booking.slot?.topic ? topicLabel(booking.slot.topic) : '1-on-1 Interview',
+          cancelledBy: 'mentor',
+        }),
+      });
+    } catch (err) {
+      console.error('Failed to send cancellation email to student:', err);
+    }
+  };
+
+  const handleCancelBookingByMentor = async (booking: Booking) => {
+    if (!window.confirm(`Are you sure you want to cancel this booking with ${booking.student?.full_name ?? 'Student'}? An email notification will be sent to the student.`)) {
+      return;
+    }
+
+    setCancellingBookingId(booking.id);
+    await supabase.from('bookings').update({ status: 'cancelled' }).eq('id', booking.id);
+    if (booking.slot_id) {
+      await supabase.from('slots').update({ is_booked: false }).eq('id', booking.slot_id);
+    }
+    await sendCancellationEmailToStudent(booking);
+    setCancellingBookingId(null);
+    fetchData();
+  };
+
   if (loading) return (
     <div className="space-y-3">
       {[1, 2].map((i) => (
@@ -602,6 +712,14 @@ function MentorDashboard({ userId, mentorProfileId, expertise }: { userId: strin
                             title="Mark this session as completed"
                           >
                             <CheckCircle2 size={13} /> Mark done
+                          </button>
+                          <button
+                            onClick={() => handleCancelBookingByMentor(b)}
+                            disabled={cancellingBookingId === b.id}
+                            className="text-xs px-3 py-2 rounded-xl border border-rose-200 text-rose-600 bg-rose-50 hover:bg-rose-100 transition-colors disabled:opacity-50 font-medium"
+                            title="Cancel session & send email to student"
+                          >
+                            {cancellingBookingId === b.id ? '...' : 'Cancel'}
                           </button>
                         </>
                       )}
