@@ -12,6 +12,7 @@ import MentorProfile from './pages/MentorProfile';
 import Dashboard from './pages/Dashboard';
 import BookingRoom from './pages/BookingRoom';
 import EditProfile from './pages/EditProfile';
+import JobsPage from './pages/JobsPage';
 import NotFound from './pages/NotFound';
 import { useAuthStore } from './lib/auth-store';
 
@@ -34,6 +35,7 @@ export default function App() {
       <main className="flex-1">
         <Routes>
           <Route path="/" element={<Landing />} />
+          <Route path="/jobs" element={<JobsPage />} />
           <Route path="/login" element={<Login />} />
           <Route path="/signup" element={<Signup />} />
           <Route path="/forgot-password" element={<ForgotPassword />} />

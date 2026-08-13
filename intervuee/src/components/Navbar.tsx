@@ -31,6 +31,11 @@ export default function Navbar() {
             Mentors
           </Link>
 
+          <Link to="/jobs" className="text-slate-600 hover:text-slate-900 hover:bg-slate-100 transition-colors px-2 sm:px-3 py-1.5 sm:py-2 rounded-lg font-medium flex items-center gap-1">
+            <span>💼 Jobs</span>
+            <span className="bg-rose-500 text-white text-[10px] font-bold px-1.5 py-0.2 rounded-full hidden sm:inline animate-pulse">HOT</span>
+          </Link>
+
           {session ? (
             <>
               <Link
