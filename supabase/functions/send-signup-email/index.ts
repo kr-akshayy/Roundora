@@ -36,8 +36,8 @@ Deno.serve(async (req: Request) => {
       { auth: { autoRefreshToken: false, persistSession: false } }
     );
 
-    // Generate signup link and create user in one atomic step via Supabase Admin API
-    const { data: linkData, error: linkError } = await supabaseAdmin.auth.admin.generateLink({
+    // 1. Generate signup link and create user in one atomic step
+    let linkRes = await supabaseAdmin.auth.admin.generateLink({
       type: 'signup',
       email: email.trim(),
       password: password,
@@ -46,25 +46,45 @@ Deno.serve(async (req: Request) => {
       },
     });
 
-    if (linkError) {
-      const msg = linkError.message.toLowerCase();
+    // 2. If generateLink returns already registered error:
+    if (linkRes.error) {
+      const msg = linkRes.error.message.toLowerCase();
       if (
         msg.includes('already') ||
         msg.includes('exists') ||
         msg.includes('registered') ||
         msg.includes('duplicate')
       ) {
-        return new Response(
-          JSON.stringify({ error: 'already_registered', message: 'This email is already registered. Please log in instead.' }),
-          { status: 409, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-        );
+        // Check if user is unconfirmed
+        const { data: userList } = await supabaseAdmin.auth.admin.listUsers();
+        const existing = userList?.users?.find(u => u.email?.toLowerCase() === email.trim().toLowerCase());
+
+        if (existing && !existing.email_confirmed_at) {
+          // User exists but NEVER confirmed email! Update password & metadata, and send fresh OTP
+          await supabaseAdmin.auth.admin.updateUserById(existing.id, {
+            password: password,
+            user_metadata: { full_name: fullName, role: role || 'student' },
+          });
+
+          linkRes = await supabaseAdmin.auth.admin.generateLink({
+            type: 'magiclink',
+            email: email.trim(),
+          });
+        } else {
+          // User exists AND is confirmed -> Truly already registered!
+          return new Response(
+            JSON.stringify({ error: 'already_registered', message: 'This email is already registered. Please log in instead.' }),
+            { status: 409, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          );
+        }
+      } else {
+        console.error('Signup link generation error:', linkRes.error);
+        throw new Error(`Signup error: ${linkRes.error.message}`);
       }
-      console.error('Signup link generation error:', linkError);
-      throw new Error(`Signup error: ${linkError.message}`);
     }
 
-    const newUser = linkData?.user;
-    const otpToken = linkData?.properties?.email_otp;
+    const newUser = linkRes.data?.user;
+    const otpToken = linkRes.data?.properties?.email_otp;
 
     if (!otpToken) {
       throw new Error('Failed to generate OTP code from Supabase Auth');
