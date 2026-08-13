@@ -36,16 +36,18 @@ Deno.serve(async (req: Request) => {
       { auth: { autoRefreshToken: false, persistSession: false } }
     );
 
-    // Direct create user via admin (email_confirm false)
-    const { data: newUser, error: createError } = await supabaseAdmin.auth.admin.createUser({
+    // Generate signup link and create user in one atomic step via Supabase Admin API
+    const { data: linkData, error: linkError } = await supabaseAdmin.auth.admin.generateLink({
+      type: 'signup',
       email: email.trim(),
       password: password,
-      email_confirm: false,
-      user_metadata: { full_name: fullName, role: role || 'student' },
+      options: {
+        data: { full_name: fullName, role: role || 'student' },
+      },
     });
 
-    if (createError) {
-      const msg = createError.message.toLowerCase();
+    if (linkError) {
+      const msg = linkError.message.toLowerCase();
       if (
         msg.includes('already') ||
         msg.includes('exists') ||
@@ -57,35 +59,24 @@ Deno.serve(async (req: Request) => {
           { status: 409, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
         );
       }
-      console.error('User create error:', createError);
-      throw new Error(`User creation error: ${createError.message}`);
+      console.error('Signup link generation error:', linkError);
+      throw new Error(`Signup error: ${linkError.message}`);
     }
 
-    // Profile bhi create karein
-    if (newUser?.user?.id) {
-      await supabaseAdmin.from('profiles').upsert({
-        id: newUser.user.id,
-        full_name: fullName,
-        role: role || 'student',
-      });
-    }
-
-    // Signup confirmation OTP generate karein
-    const { data: linkData, error: linkError } = await supabaseAdmin.auth.admin.generateLink({
-      type: 'signup',
-      email: email.trim(),
-      password: password,
-    });
-
-    if (linkError) {
-      console.error('Link generation error:', linkError);
-      throw new Error(`OTP generation error: ${linkError.message}`);
-    }
-
+    const newUser = linkData?.user;
     const otpToken = linkData?.properties?.email_otp;
 
     if (!otpToken) {
-      throw new Error('Failed to generate OTP');
+      throw new Error('Failed to generate OTP code from Supabase Auth');
+    }
+
+    // Profile create/upsert
+    if (newUser?.id) {
+      await supabaseAdmin.from('profiles').upsert({
+        id: newUser.id,
+        full_name: fullName,
+        role: role || 'student',
+      });
     }
 
     // Resend se branded welcome email bhejo
