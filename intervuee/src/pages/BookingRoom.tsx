@@ -183,11 +183,10 @@ export default function BookingRoom() {
   const otherPerson = profile?.role === 'mentor' ? booking.student : booking.mentor;
   const otherRole = profile?.role === 'mentor' ? 'Student' : 'Mentor / Interviewer';
 
-  // Jitsi Meet URL
+  // Jitsi Meet URL — config.disableDeepLinking=true prevents mobile app download prompt
   const jitsiUrl = `https://meet.jit.si/${booking.meeting_room}#userInfo.displayName="${encodeURIComponent(
     profile?.full_name ?? 'Participant'
-  )}"`;
-
+  )}"&config.disableDeepLinking=true&config.startWithVideoMuted=false&config.startWithAudioMuted=false`;
   const starLabels: Record<number, string> = {
     1: 'Poor 😞',
     2: 'Fair 😐',
