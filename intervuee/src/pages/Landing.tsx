@@ -1,5 +1,6 @@
 import { Link } from 'react-router-dom';
-import { ArrowRight, Video, ShieldCheck, Timer, Code2, Users2, Sparkles } from 'lucide-react';
+import { ArrowRight, Users2, Sparkles, Video, ShieldCheck } from 'lucide-react';
+import LiveInterviewSimulation from '../components/LiveInterviewSimulation';
 
 const rounds = [
   { n: '01', label: 'Screening', desc: 'Resume walkthrough & background fit', color: 'text-cyan-600' },
@@ -58,48 +59,8 @@ export default function Landing() {
           </div>
         </div>
 
-        {/* Signature element: live "session card" mimicking the actual product */}
-        <div className="relative">
-          <div className="card p-5 shadow-glow">
-            <div className="flex items-center justify-between mb-4">
-              <div className="flex items-center gap-2">
-                <span className="w-2 h-2 rounded-full bg-rose-500 animate-pulse" />
-                <span className="text-xs font-medium text-slate-500">Live session</span>
-              </div>
-              <span className="flex items-center gap-1 text-xs text-slate-400">
-                <Timer size={12} /> 32:14
-              </span>
-            </div>
-            <div className="aspect-video rounded-xl bg-slate-100 border border-slate-200 flex items-center justify-center mb-4 relative overflow-hidden">
-              <div className="absolute inset-0 bg-hero-pattern" />
-              <Video size={28} className="text-slate-300 relative" />
-              <span className="absolute bottom-3 left-3 text-xs bg-slate-900/70 text-white px-2 py-1 rounded-md">
-                Round: System Design
-              </span>
-            </div>
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <div className="w-8 h-8 rounded-full bg-purple-100 border border-purple-200 flex items-center justify-center text-xs font-semibold text-purple-700">
-                  RS
-                </div>
-                <div>
-                  <div className="text-sm font-medium text-slate-900">Rohan S.</div>
-                  <div className="text-xs text-slate-500">Staff Eng, ex-Amazon</div>
-                </div>
-              </div>
-              <span className="flex items-center gap-1 text-xs text-emerald-700 bg-emerald-50 border border-emerald-200 rounded-full px-2.5 py-1">
-                <ShieldCheck size={11} /> Verified
-              </span>
-            </div>
-          </div>
-          <div className="absolute -bottom-4 -right-4 card px-4 py-3 shadow-md hidden sm:block">
-            <div className="flex items-center gap-2 text-sm">
-              <Code2 size={14} className="text-emerald-600" />
-              <span className="font-medium text-slate-800">Feedback sent</span>
-            </div>
-            <div className="text-xs text-slate-500 mt-0.5">within 2 hours</div>
-          </div>
-        </div>
+        {/* Signature element: Live animated mock interview simulation running on repeat */}
+        <LiveInterviewSimulation />
       </section>
 
       {/* Rounds — real sequence, so numbering is earned here */}
