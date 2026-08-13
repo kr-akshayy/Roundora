@@ -385,19 +385,21 @@ export default function Login() {
                     required
                     value={otpCode}
                     onChange={(e) => setOtpCode(e.target.value.trim().slice(0, 8))}
-                    placeholder="_ _ _ _ _ _ _ _"
+                    placeholder="Enter OTP code"
                     style={{
                       ...styles.input,
-                      fontSize: '22px',
+                      fontSize: '26px',
                       fontWeight: '800',
-                      letterSpacing: '8px',
+                      letterSpacing: '4px',
                       textAlign: 'center',
-                      padding: '16px 14px',
+                      padding: '16px 10px',
                       fontFamily: "'Courier New', monospace",
                       textTransform: 'lowercase',
+                      width: '100%',
+                      boxSizing: 'border-box' as const,
                     }}
-                    onFocus={(e) => Object.assign(e.target.style, { ...styles.inputFocus, fontSize: '22px', fontWeight: '800', letterSpacing: '8px', textAlign: 'center', fontFamily: "'Courier New', monospace" })}
-                    onBlur={(e) => Object.assign(e.target.style, { ...styles.inputBlur, fontSize: '22px', fontWeight: '800', letterSpacing: '8px', textAlign: 'center', fontFamily: "'Courier New', monospace" })}
+                    onFocus={(e) => Object.assign(e.target.style, { ...styles.inputFocus, fontSize: '26px', fontWeight: '800', letterSpacing: '4px', textAlign: 'center', fontFamily: "'Courier New', monospace" })}
+                    onBlur={(e) => Object.assign(e.target.style, { ...styles.inputBlur, fontSize: '26px', fontWeight: '800', letterSpacing: '4px', textAlign: 'center', fontFamily: "'Courier New', monospace" })}
                     autoFocus
                   />
                   <div style={{ fontSize: '12px', color: '#94a3b8', textAlign: 'center' }}>
