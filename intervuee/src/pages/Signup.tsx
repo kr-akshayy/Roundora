@@ -4,6 +4,9 @@ import { AlertCircle, GraduationCap, Briefcase, Eye, EyeOff, ArrowLeft } from 'l
 import { supabase } from '../lib/supabase';
 import type { UserRole } from '../types';
 
+const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL as string;
+const SUPABASE_ANON_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY as string;
+
 function getErrorMessage(err: unknown): string {
   if (!err) return '';
   if (typeof err === 'string') return err || 'An unknown error occurred.';
@@ -40,96 +43,80 @@ export default function Signup() {
     setError(null);
     setLoading(true);
 
-    const { data, error: signUpError } = await supabase.auth.signUp({
-      email,
-      password,
-      options: {
-        data: { full_name: fullName, role },
-        emailRedirectTo: `${window.location.origin}/login`,
-      },
-    });
+    try {
+      const res = await fetch(
+        `${SUPABASE_URL}/functions/v1/send-signup-email`,
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${SUPABASE_ANON_KEY}`,
+          },
+          body: JSON.stringify({
+            email: email.trim(),
+            password,
+            fullName,
+            role,
+          }),
+        }
+      );
 
-    if (signUpError) {
-      console.error('[Signup] signUpError:', signUpError);
-      const isRateLimit =
-        signUpError.message?.toLowerCase().includes('rate limit') ||
-        (signUpError as { code?: string }).code === 'over_email_send_rate_limit';
-      const isUnconfirmed =
-        signUpError.message?.toLowerCase().includes('email not confirmed') ||
-        signUpError.message?.toLowerCase().includes('not confirmed');
-
-      if (isRateLimit) {
-        setError('⏳ Too many signup attempts. Please wait 5-10 minutes or try using a different email.');
-      } else if (isUnconfirmed) {
-        setError('📧 Email not confirmed. A verification link/OTP has been sent to your email. Enter the code below or click resend.');
-        setDone(true);
-      } else {
-        setError(getErrorMessage(signUpError));
-      }
+      const data = await res.json();
       setLoading(false);
-      return;
-    }
 
-    if (data.user && data.user.identities?.length === 0) {
-      setError('This email is already registered. Please log in instead.');
-      setLoading(false);
-      return;
-    }
-
-    if (data.session && data.user) {
-      const { error: profileError } = await supabase.from('profiles').upsert({
-        id: data.user.id,
-        full_name: fullName,
-        role,
-      });
-      if (profileError) {
-        console.error('[Signup] profileError:', profileError);
-        setError(getErrorMessage(profileError) || 'Failed to create profile. Please try again.');
-        setLoading(false);
+      if (!res.ok || data.error) {
+        const errMsg: string = data.message || data.error || '';
+        const lower = errMsg.toLowerCase();
+        if (data.error === 'already_registered' || lower.includes('already')) {
+          setError('Yeh email already registered hai. Login karein.');
+        } else if (lower.includes('rate limit') || lower.includes('too many')) {
+          setError('⏳ Too many attempts. Please wait 5-10 minutes.');
+        } else {
+          setError(errMsg || 'Account create nahi ho saka. Dobara try karein.');
+        }
         return;
       }
-    }
 
-    setLoading(false);
-    if (data.session) {
-      navigate('/dashboard');
-    } else {
       setDone(true);
+    } catch {
+      setLoading(false);
+      setError('❌ Network error. Internet check karein aur dobara try karein.');
     }
   };
 
   const handleVerifyOtp = async (e: FormEvent) => {
     e.preventDefault();
-    if (!otpCode || otpCode.length < 6) {
-      setOtpError('Please enter a valid 6-digit OTP code.');
+    if (!otpCode || otpCode.trim().length < 6) {
+      setOtpError('Please enter the full OTP code from your email.');
       return;
     }
     setOtpError(null);
     setOtpVerifying(true);
 
-    let { data: verifyData, error: verifyErr } = await supabase.auth.verifyOtp({
-      email,
-      token: otpCode,
-      type: 'signup',
-    });
+    const token = otpCode.trim();
 
-    if (verifyErr) {
-      const res = await supabase.auth.verifyOtp({
-        email,
-        token: otpCode,
-        type: 'email',
-      });
-      verifyData = res.data;
+    // Try signup type first, then email, then magiclink
+    let verifyData: { user?: { id: string } | null } | null = null;
+    let verifyErr: { message?: string } | null = null;
+
+    const attempts: Array<'signup' | 'email' | 'magiclink'> = ['signup', 'email', 'magiclink'];
+    for (const type of attempts) {
+      const res = await supabase.auth.verifyOtp({ email, token, type });
+      if (!res.error) {
+        verifyData = res.data;
+        verifyErr = null;
+        break;
+      }
       verifyErr = res.error;
     }
 
     setOtpVerifying(false);
     if (verifyErr) {
-      setOtpError(getErrorMessage(verifyErr));
+      setOtpError('Invalid ya expired OTP. Email check karein ya Resend karo.');
       return;
     }
 
-    if (verifyData.user) {
+    if (verifyData?.user) {
       await supabase.from('profiles').upsert({
         id: verifyData.user.id,
         full_name: fullName,
@@ -162,9 +149,10 @@ export default function Signup() {
         <div style={styles.heroBg} />
         <div style={styles.doneCard}>
           <div style={styles.doneIcon}>✉️</div>
-          <h1 style={styles.doneTitle}>Check your email!</h1>
+          <h1 style={styles.doneTitle}>Check your email! 📧</h1>
           <p style={styles.doneSub}>
-            We sent a 6-digit OTP code to <strong>{email}</strong>. Enter it below or click the link in your email.
+            We sent a verification OTP to <strong>{email}</strong>.<br/>
+            Enter the code from your email below.
           </p>
 
           <form onSubmit={handleVerifyOtp} style={{ width: '100%', maxWidth: '320px', margin: '0 auto 16px', display: 'flex', flexDirection: 'column', gap: '10px' }}>
@@ -175,12 +163,11 @@ export default function Signup() {
             )}
             <input
               type="text"
-              inputMode="numeric"
-              pattern="[0-9]{6}"
-              maxLength={6}
+              inputMode="text"
+              maxLength={8}
               value={otpCode}
-              onChange={(e) => setOtpCode(e.target.value.replace(/\D/g, '').slice(0, 6))}
-              placeholder="_ _ _ _ _ _"
+              onChange={(e) => setOtpCode(e.target.value.trim().slice(0, 8))}
+              placeholder="Enter OTP code"
               style={{
                 width: '100%',
                 padding: '14px',
@@ -190,15 +177,17 @@ export default function Signup() {
                 color: '#fff',
                 fontSize: '24px',
                 fontWeight: '800',
-                letterSpacing: '10px',
+                letterSpacing: '0px',
                 textAlign: 'center',
                 outline: 'none',
                 boxSizing: 'border-box',
+                fontFamily: "'Courier New', monospace",
+                textTransform: 'uppercase',
               }}
             />
             <button
               type="submit"
-              disabled={otpVerifying || otpCode.length < 6}
+              disabled={otpVerifying || otpCode.trim().length < 6}
               style={{
                 ...styles.ctaBtn,
                 opacity: (otpVerifying || otpCode.length < 6) ? 0.6 : 1,
