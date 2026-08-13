@@ -12,6 +12,8 @@ interface AuthState {
   signOut: () => Promise<void>;
 }
 
+let listenerInitialized = false;
+
 export const useAuthStore = create<AuthState>((set, get) => ({
   session: null,
   profile: null,
@@ -20,18 +22,25 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   initialize: async () => {
     const { data } = await supabase.auth.getSession();
     set({ session: data.session, loading: false });
+
     if (data.session) {
       await get().refreshProfile();
     }
 
-    supabase.auth.onAuthStateChange(async (_event, session) => {
-      set({ session });
-      if (session) {
-        await get().refreshProfile();
-      } else {
-        set({ profile: null });
-      }
-    });
+    if (!listenerInitialized) {
+      listenerInitialized = true;
+      supabase.auth.onAuthStateChange(async (_event, session) => {
+        const currentSession = get().session;
+        if (currentSession?.access_token !== session?.access_token) {
+          set({ session, loading: false });
+          if (session) {
+            await get().refreshProfile();
+          } else {
+            set({ profile: null });
+          }
+        }
+      });
+    }
   },
 
   refreshProfile: async () => {
