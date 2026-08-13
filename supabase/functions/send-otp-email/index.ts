@@ -45,7 +45,7 @@ Deno.serve(async (req: Request) => {
 
     if (!userExists) {
       return new Response(
-        JSON.stringify({ error: 'user_not_found', message: 'Yeh email registered nahi hai.' }),
+        JSON.stringify({ error: 'user_not_found', message: 'This email is not registered. Please sign up first.' }),
         { status: 404, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }

@@ -68,11 +68,11 @@ export default function Signup() {
         const errMsg: string = data.message || data.error || '';
         const lower = errMsg.toLowerCase();
         if (data.error === 'already_registered' || lower.includes('already')) {
-          setError('Yeh email already registered hai. Login karein.');
+          setError('This email is already registered. Please log in instead.');
         } else if (lower.includes('rate limit') || lower.includes('too many')) {
-          setError('⏳ Too many attempts. Please wait 5-10 minutes.');
+          setError('Too many attempts. Please wait 5-10 minutes and try again.');
         } else {
-          setError(errMsg || 'Account create nahi ho saka. Dobara try karein.');
+          setError(errMsg || 'Failed to create account. Please try again.');
         }
         return;
       }
@@ -80,7 +80,7 @@ export default function Signup() {
       setDone(true);
     } catch {
       setLoading(false);
-      setError('❌ Network error. Internet check karein aur dobara try karein.');
+      setError('Network error. Please check your internet connection and try again.');
     }
   };
 
@@ -112,7 +112,7 @@ export default function Signup() {
 
     setOtpVerifying(false);
     if (verifyErr) {
-      setOtpError('Invalid ya expired OTP. Email check karein ya Resend karo.');
+      setOtpError('Invalid or expired OTP. Please check your email or click Resend.');
       return;
     }
 

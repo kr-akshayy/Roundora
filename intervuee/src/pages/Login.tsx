@@ -117,13 +117,13 @@ export default function Login() {
         const errMsg: string = data.message || data.error || '';
         const lower = errMsg.toLowerCase();
         if (data.error === 'user_not_found' || lower.includes('registered nahi')) {
-          setOtpError('❌ Yeh email registered nahi hai. Pehle Sign Up karein.');
+          setOtpError('This email is not registered. Please sign up first.');
         } else if (lower.includes('rate limit') || lower.includes('too many')) {
-          setOtpError('⏳ Bahut saare OTP attempts. 5 minute baad try karein.');
+          setOtpError('Too many OTP attempts. Please wait 5 minutes and try again.');
         } else if (lower.includes('resend')) {
-          setOtpError('📧 Email service mein issue hai. Thodi der baad try karein.');
+          setOtpError('Email service is temporarily unavailable. Please try again shortly.');
         } else {
-          setOtpError('❌ OTP nahi bheja ja saka. Password tab se login try karein.');
+          setOtpError('Failed to send OTP. Please try logging in with your password instead.');
         }
         return;
       }
@@ -131,7 +131,7 @@ export default function Login() {
       setOtpSent(true);
     } catch {
       setOtpLoading(false);
-      setOtpError('❌ Network error. Internet connection check karein aur dobara try karein.');
+      setOtpError('Network error. Please check your internet connection and try again.');
     }
   };
 
@@ -164,7 +164,7 @@ export default function Login() {
       const rawMsg = parseAuthError(verifyErr, 'Invalid or expired OTP code.');
       const lower = rawMsg.toLowerCase();
       if (lower.includes('expired') || lower.includes('invalid')) {
-        setOtpError('❌ Invalid ya expired OTP. Please naya code request karein.');
+        setOtpError('Invalid or expired OTP. Please request a new code.');
       } else {
         setOtpError(rawMsg);
       }

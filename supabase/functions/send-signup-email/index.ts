@@ -1,4 +1,4 @@
-﻿// Supabase Edge Function: send-signup-email
+// Supabase Edge Function: send-signup-email
 // Flow:
 // 1. Email + password + fullName + role leta hai
 // 2. Supabase Admin se user create karta hai (no default email)
@@ -44,7 +44,7 @@ Deno.serve(async (req: Request) => {
 
     if (existingUser) {
       return new Response(
-        JSON.stringify({ error: 'already_registered', message: 'Yeh email already registered hai. Login karein.' }),
+        JSON.stringify({ error: 'already_registered', message: 'This email is already registered. Please log in instead.' }),
         { status: 409, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
