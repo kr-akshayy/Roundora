@@ -385,25 +385,35 @@ export default function Login() {
                     required
                     value={otpCode}
                     onChange={(e) => setOtpCode(e.target.value.trim().slice(0, 8))}
-                    placeholder="Enter OTP code"
+                    placeholder="Enter 8-character OTP"
                     style={{
                       ...styles.input,
-                      fontSize: '26px',
-                      fontWeight: '800',
-                      letterSpacing: '4px',
+                      fontSize: '28px',
+                      fontWeight: '900',
+                      letterSpacing: '0px',
                       textAlign: 'center',
-                      padding: '16px 10px',
+                      padding: '18px 8px',
                       fontFamily: "'Courier New', monospace",
-                      textTransform: 'lowercase',
+                      textTransform: 'uppercase',
                       width: '100%',
                       boxSizing: 'border-box' as const,
                     }}
-                    onFocus={(e) => Object.assign(e.target.style, { ...styles.inputFocus, fontSize: '26px', fontWeight: '800', letterSpacing: '4px', textAlign: 'center', fontFamily: "'Courier New', monospace" })}
-                    onBlur={(e) => Object.assign(e.target.style, { ...styles.inputBlur, fontSize: '26px', fontWeight: '800', letterSpacing: '4px', textAlign: 'center', fontFamily: "'Courier New', monospace" })}
+                    onFocus={(e) => Object.assign(e.target.style, {
+                      borderColor: '#6366f1', backgroundColor: '#fff',
+                      boxShadow: '0 0 0 3px rgba(99,102,241,0.1)',
+                      fontSize: '28px', fontWeight: '900', letterSpacing: '0px',
+                      textAlign: 'center', fontFamily: "'Courier New', monospace",
+                    })}
+                    onBlur={(e) => Object.assign(e.target.style, {
+                      borderColor: '#e2e8f0', backgroundColor: '#f8fafc',
+                      boxShadow: 'none',
+                      fontSize: '28px', fontWeight: '900', letterSpacing: '0px',
+                      textAlign: 'center', fontFamily: "'Courier New', monospace",
+                    })}
                     autoFocus
                   />
-                  <div style={{ fontSize: '12px', color: '#94a3b8', textAlign: 'center' }}>
-                    OTP expires in 10 minutes
+                  <div style={{ fontSize: '12px', color: '#94a3b8', textAlign: 'center', marginTop: '4px' }}>
+                    ⏱ OTP expires in 10 minutes
                   </div>
                 </div>
 
