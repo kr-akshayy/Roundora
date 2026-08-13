@@ -16,8 +16,10 @@ import {
   AlertTriangle,
   X,
   Send,
+  FileText,
 } from 'lucide-react';
 import { supabase } from '../lib/supabase';
+import { generateScorecardPrintableWindow } from '../lib/scorecardPdf';
 import { useAuthStore } from '../lib/auth-store';
 import type { Booking } from '../types';
 
@@ -333,9 +335,24 @@ export default function BookingRoom() {
                       <CheckCircle2 size={26} />
                     </div>
                     <h4 className="font-bold text-emerald-900 text-base">Review Submitted!</h4>
-                    <p className="text-xs text-emerald-700 mt-1">
+                    <p className="text-xs text-emerald-700 mt-1 mb-4">
                       Thank you for sharing your review ({rating} ★). Your feedback is recorded.
                     </p>
+                    <button
+                      onClick={() => generateScorecardPrintableWindow({
+                        studentName: profile?.full_name ?? 'Student',
+                        mentorName: otherPerson?.full_name ?? 'Interviewer',
+                        mentorCompany: (otherPerson as any)?.company,
+                        rating: rating,
+                        comment: comment || 'Completed 1-on-1 session on Roundora Platform.',
+                        topic: '1-on-1 Technical Mock Interview',
+                        dateStr: new Date().toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' }),
+                        bookingId: bookingId ?? 'session-complete',
+                      })}
+                      className="btn-primary inline-flex items-center gap-2 text-xs !py-2.5"
+                    >
+                      <FileText size={15} /> Download Official Scorecard PDF
+                    </button>
                   </div>
                 ) : (
                   <form onSubmit={handleReviewSubmit} className="space-y-5">

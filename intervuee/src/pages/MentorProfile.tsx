@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, FormEvent } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import {
   Briefcase, IndianRupee, Calendar, CheckCircle2, AlertCircle,
@@ -9,6 +9,7 @@ import { useAuthStore } from '../lib/auth-store';
 import Avatar from '../components/Avatar';
 import StarRating from '../components/StarRating';
 import { topicLabel, topicColor } from '../lib/topics';
+import { getGoogleCalendarUrl, downloadIcsFile } from '../lib/calendarUtils';
 import type { Profile, Slot, Review } from '../types';
 
 function SlotCard({
@@ -138,6 +139,10 @@ export default function MentorProfile() {
   const [reviews, setReviews] = useState<Review[]>([]);
   const [loading, setLoading] = useState(true);
   const [booking, setBooking] = useState<string | null>(null);
+  const [checkoutSlot, setCheckoutSlot] = useState<Slot | null>(null);
+  const [utrNumber, setUtrNumber] = useState('');
+  const [resumeUrl, setResumeUrl] = useState('');
+  const [studentNotes, setStudentNotes] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
   const [bookedSlot, setBookedSlot] = useState<Slot | null>(null);
@@ -170,20 +175,28 @@ export default function MentorProfile() {
   const avgRating =
     reviews.length > 0 ? reviews.reduce((sum, r) => sum + r.rating, 0) / reviews.length : null;
 
-  const handleBook = async (slot: Slot) => {
+  const initiateBookSlot = (slot: Slot) => {
     if (!session) {
       navigate('/login');
       return;
     }
+    setCheckoutSlot(slot);
     setError(null);
-    setBooking(slot.id);
+  };
 
-    const roomName = `roundora-${slot.id}-${Date.now().toString(36)}`;
+  const handleConfirmPaymentBooking = async (e: FormEvent) => {
+    e.preventDefault();
+    if (!checkoutSlot || !session || !mentor) return;
+
+    setError(null);
+    setBooking(checkoutSlot.id);
+
+    const roomName = `roundora-${checkoutSlot.id}-${Date.now().toString(36)}`;
 
     const { error: bookingError } = await supabase.from('bookings').insert({
       student_id: session.user.id,
-      mentor_id: mentor!.id,
-      slot_id: slot.id,
+      mentor_id: mentor.id,
+      slot_id: checkoutSlot.id,
       meeting_room: roomName,
       status: 'confirmed',
     });
@@ -194,10 +207,33 @@ export default function MentorProfile() {
       return;
     }
 
-    await supabase.from('slots').update({ is_booked: true }).eq('id', slot.id);
+    await supabase.from('slots').update({ is_booked: true }).eq('id', checkoutSlot.id);
+
+    // Notify admin team via support ticket API
+    try {
+      const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
+      const SUPABASE_ANON_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY;
+
+      await fetch(`${SUPABASE_URL}/functions/v1/send-support-ticket`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${SUPABASE_ANON_KEY}`,
+        },
+        body: JSON.stringify({
+          senderEmail: session.user.email ?? 'student@roundora.in',
+          senderName: profile?.full_name ?? 'Student',
+          subject: `💳 NEW BOOKING PAYMENT: UTR ${utrNumber || 'N/A'} | Mentor: ${mentor.full_name}`,
+          message: `New booking confirmed!\nStudent: ${profile?.full_name}\nMentor: ${mentor.full_name}\nSlot Time: ${checkoutSlot.start_time}\nUTR / Ref Number: ${utrNumber}\nResume Link: ${resumeUrl || 'None'}\nStudent Notes: ${studentNotes || 'None'}`,
+        }),
+      });
+    } catch (err) {
+      console.error('Failed to notify admin of booking:', err);
+    }
 
     setBooking(null);
-    setBookedSlot(slot);
+    setBookedSlot(checkoutSlot);
+    setCheckoutSlot(null);
     setSuccess(true);
   };
 
@@ -293,6 +329,63 @@ export default function MentorProfile() {
                 </div>
               )}
             </div>
+          </div>
+
+          {/* Calendar Sync Buttons */}
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px', marginBottom: '12px' }}>
+            <a
+              href={getGoogleCalendarUrl({
+                title: `Roundora 1-on-1 Session with ${mentor?.full_name}`,
+                description: `Mock Interview Session with ${mentor?.full_name} (${mentor?.company ?? 'Verified Mentor'}). Topic: ${topicLabel(bookedSlot.topic ?? '')}`,
+                location: `${window.location.origin}/dashboard`,
+                startTimeIso: bookedSlot.start_time,
+                durationMinutes: bookedSlot.duration_minutes,
+              })}
+              target="_blank"
+              rel="noopener noreferrer"
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: '6px',
+                padding: '10px 14px',
+                borderRadius: '12px',
+                backgroundColor: '#ffffff',
+                border: '1px solid #cbd5e1',
+                color: '#1e293b',
+                fontSize: '13px',
+                fontWeight: '700',
+                textDecoration: 'none',
+              }}
+            >
+              📅 Google Calendar
+            </a>
+
+            <button
+              onClick={() => downloadIcsFile({
+                title: `Roundora 1-on-1 Session with ${mentor?.full_name}`,
+                description: `Mock Interview Session with ${mentor?.full_name}. Topic: ${topicLabel(bookedSlot.topic ?? '')}`,
+                location: `${window.location.origin}/dashboard`,
+                startTimeIso: bookedSlot.start_time,
+                durationMinutes: bookedSlot.duration_minutes,
+              })}
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: '6px',
+                padding: '10px 14px',
+                borderRadius: '12px',
+                backgroundColor: '#f1f5f9',
+                border: '1px solid #cbd5e1',
+                color: '#1e293b',
+                fontSize: '13px',
+                fontWeight: '700',
+                cursor: 'pointer',
+              }}
+            >
+              📥 Download .ics
+            </button>
           </div>
 
           <Link
@@ -546,7 +639,7 @@ export default function MentorProfile() {
                 <SlotCard
                   key={slot.id}
                   slot={slot}
-                  onBook={() => handleBook(slot)}
+                  onBook={() => initiateBookSlot(slot)}
                   isBooking={booking === slot.id}
                   disabled={!session || isMentor || isOwnProfile}
                 />
@@ -554,6 +647,190 @@ export default function MentorProfile() {
             </div>
           )}
         </div>
+
+        {/* Direct UPI Payment Checkout Modal */}
+        {checkoutSlot && (
+          <div style={{
+            position: 'fixed',
+            inset: 0,
+            backgroundColor: 'rgba(15, 23, 42, 0.75)',
+            backdropFilter: 'blur(8px)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            zIndex: 9999,
+            padding: '16px',
+          }}>
+            <div style={{
+              backgroundColor: '#ffffff',
+              borderRadius: '24px',
+              maxWidth: '480px',
+              width: '100%',
+              padding: '28px',
+              boxShadow: '0 20px 40px rgba(0,0,0,0.2)',
+              position: 'relative',
+              maxHeight: '90vh',
+              overflowY: 'auto',
+            }}>
+              <button
+                onClick={() => setCheckoutSlot(null)}
+                style={{
+                  position: 'absolute',
+                  top: '20px',
+                  right: '20px',
+                  border: 'none',
+                  background: '#f1f5f9',
+                  borderRadius: '50%',
+                  width: '32px',
+                  height: '32px',
+                  cursor: 'pointer',
+                  fontSize: '16px',
+                  color: '#64748b',
+                }}
+              >
+                ✕
+              </button>
+
+              <div style={{ textAlign: 'center', marginBottom: '20px' }}>
+                <span style={{ fontSize: '36px' }}>💳</span>
+                <h3 style={{ fontSize: '20px', fontWeight: '800', color: '#0f172a', margin: '6px 0 2px' }}>
+                  Complete Your Booking
+                </h3>
+                <p style={{ fontSize: '13px', color: '#64748b', margin: 0 }}>
+                  Session with <strong>{mentor?.full_name}</strong> ({topicLabel(checkoutSlot.topic ?? '')})
+                </p>
+              </div>
+
+              {/* Price Banner */}
+              <div style={{
+                backgroundColor: '#eef2ff',
+                border: '1px solid #c7d2fe',
+                borderRadius: '16px',
+                padding: '14px',
+                textAlign: 'center',
+                marginBottom: '20px',
+              }}>
+                <span style={{ fontSize: '12px', color: '#4338ca', fontWeight: '700', textTransform: 'uppercase' }}>
+                  Total Session Fee
+                </span>
+                <div style={{ fontSize: '28px', fontWeight: '900', color: '#3730a3', marginTop: '2px' }}>
+                  ₹{mentor?.price_per_session ?? 499}
+                </div>
+              </div>
+
+              {/* UPI Payment Instructions */}
+              <div style={{
+                backgroundColor: '#f8fafc',
+                border: '1px solid #e2e8f0',
+                borderRadius: '16px',
+                padding: '16px',
+                marginBottom: '20px',
+              }}>
+                <div style={{ fontSize: '12px', fontWeight: '700', color: '#334155', textTransform: 'uppercase', marginBottom: '8px' }}>
+                  📲 Pay via UPI / GPay / PhonePe / Paytm
+                </div>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', backgroundColor: '#fff', border: '1px solid #cbd5e1', padding: '10px 14px', borderRadius: '12px', marginBottom: '8px' }}>
+                  <div>
+                    <div style={{ fontSize: '11px', color: '#64748b' }}>Roundora Team UPI ID:</div>
+                    <div style={{ fontSize: '15px', fontWeight: '800', color: '#0f172a', fontFamily: 'monospace' }}>7488455190@upi</div>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => navigator.clipboard.writeText('7488455190@upi')}
+                    style={{ background: '#e0e7ff', color: '#3730a3', border: 'none', padding: '6px 12px', borderRadius: '8px', fontSize: '12px', fontWeight: '700', cursor: 'pointer' }}
+                  >
+                    Copy UPI
+                  </button>
+                </div>
+                <div style={{ fontSize: '12px', color: '#475569', lineHeight: 1.5 }}>
+                  📞 Team WhatsApp / Call Support: <strong>+91 7488455190</strong>
+                </div>
+              </div>
+
+              <form onSubmit={handleConfirmPaymentBooking} style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+                <div>
+                  <label style={{ display: 'block', fontSize: '12px', fontWeight: '700', color: '#334155', marginBottom: '6px' }}>
+                    Payment UTR / Transaction Reference No. *
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    placeholder="e.g. 429104820193 or UPI Ref ID"
+                    value={utrNumber}
+                    onChange={(e) => setUtrNumber(e.target.value)}
+                    style={{
+                      width: '100%',
+                      padding: '12px 14px',
+                      borderRadius: '12px',
+                      border: '1px solid #cbd5e1',
+                      fontSize: '14px',
+                      boxSizing: 'border-box',
+                    }}
+                  />
+                </div>
+
+                <div>
+                  <label style={{ display: 'block', fontSize: '12px', fontWeight: '700', color: '#334155', marginBottom: '6px' }}>
+                    Resume / Portfolio / LinkedIn Link (Optional)
+                  </label>
+                  <input
+                    type="url"
+                    placeholder="https://drive.google.com/my-resume.pdf"
+                    value={resumeUrl}
+                    onChange={(e) => setResumeUrl(e.target.value)}
+                    style={{
+                      width: '100%',
+                      padding: '12px 14px',
+                      borderRadius: '12px',
+                      border: '1px solid #cbd5e1',
+                      fontSize: '14px',
+                      boxSizing: 'border-box',
+                    }}
+                  />
+                </div>
+
+                <div>
+                  <label style={{ display: 'block', fontSize: '12px', fontWeight: '700', color: '#334155', marginBottom: '6px' }}>
+                    Note / Topics to Focus On (Optional)
+                  </label>
+                  <textarea
+                    rows={2}
+                    placeholder="e.g. Please focus on System Design LRU cache & Dynamic Programming"
+                    value={studentNotes}
+                    onChange={(e) => setStudentNotes(e.target.value)}
+                    style={{
+                      width: '100%',
+                      padding: '10px 14px',
+                      borderRadius: '12px',
+                      border: '1px solid #cbd5e1',
+                      fontSize: '13px',
+                      boxSizing: 'border-box',
+                    }}
+                  />
+                </div>
+
+                <button
+                  type="submit"
+                  disabled={booking === checkoutSlot.id}
+                  style={{
+                    padding: '14px',
+                    borderRadius: '14px',
+                    background: 'linear-gradient(135deg, #16a34a, #059669)',
+                    color: '#fff',
+                    fontSize: '15px',
+                    fontWeight: '800',
+                    border: 'none',
+                    cursor: 'pointer',
+                    boxShadow: '0 4px 16px rgba(16,185,129,0.3)',
+                    marginTop: '6px',
+                  }}
+                >
+                  {booking === checkoutSlot.id ? 'Confirming Booking...' : '✓ Confirm & Complete Booking'}
+                </button>
+              </form>
+            </div>
+          </div>
+        )}
 
         {/* Reviews Section */}
         {reviews.length > 0 && (

@@ -1,10 +1,11 @@
 import { useEffect, useState, FormEvent } from 'react';
 import { Link } from 'react-router-dom';
-import { Video, Calendar, Plus, Clock, CheckCircle2, MessageSquarePlus, Trash2, X, Copy, ExternalLink, Bell, CalendarPlus } from 'lucide-react';
+import { Video, Calendar, Plus, Clock, CheckCircle2, MessageSquarePlus, Trash2, X, Copy, ExternalLink, Bell, CalendarPlus, FileText } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { useAuthStore } from '../lib/auth-store';
 import StarRating from '../components/StarRating';
 import { TOPICS, topicLabel, topicColor } from '../lib/topics';
+import { generateScorecardPrintableWindow } from '../lib/scorecardPdf';
 import type { Booking, Slot } from '../types';
 
 function ReviewForm({ booking, onDone }: { booking: Booking; onDone: () => void }) {
@@ -296,18 +297,38 @@ function StudentDashboard({ userId }: { userId: string }) {
                   </button>
                 </>
               )}
-              {b.status === 'completed' && !reviewedBookingIds.has(b.id) && reviewingId !== b.id && (
-                <button
-                  onClick={() => setReviewingId(b.id)}
-                  className="btn-secondary !px-3 !py-2 text-xs"
-                >
-                  <MessageSquarePlus size={13} /> Leave a review
-                </button>
-              )}
-              {b.status === 'completed' && reviewedBookingIds.has(b.id) && (
-                <span className="text-xs text-slate-400 flex items-center gap-1">
-                  <CheckCircle2 size={12} className="text-emerald-500" /> Reviewed
-                </span>
+              {b.status === 'completed' && (
+                <>
+                  <button
+                    onClick={() => generateScorecardPrintableWindow({
+                      studentName: b.student?.full_name ?? 'Student',
+                      mentorName: b.mentor?.full_name ?? 'Interviewer',
+                      mentorCompany: b.mentor?.company,
+                      rating: 5,
+                      comment: 'Strong performance during live mock interview. Keep practicing System Design trade-offs.',
+                      topic: b.slot?.topic ? topicLabel(b.slot.topic) : 'Mock Interview',
+                      dateStr: new Date(b.created_at).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' }),
+                      bookingId: b.id,
+                    })}
+                    className="flex items-center gap-1 text-xs px-3 py-2 rounded-xl border border-indigo-200 text-indigo-700 bg-indigo-50 hover:bg-indigo-100 transition-colors font-semibold"
+                    title="Download / Print Official Interview Scorecard PDF"
+                  >
+                    <FileText size={13} /> Scorecard PDF
+                  </button>
+                  {!reviewedBookingIds.has(b.id) && reviewingId !== b.id && (
+                    <button
+                      onClick={() => setReviewingId(b.id)}
+                      className="btn-secondary !px-3 !py-2 text-xs"
+                    >
+                      <MessageSquarePlus size={13} /> Leave a review
+                    </button>
+                  )}
+                  {reviewedBookingIds.has(b.id) && (
+                    <span className="text-xs text-slate-400 flex items-center gap-1">
+                      <CheckCircle2 size={12} className="text-emerald-500" /> Reviewed
+                    </span>
+                  )}
+                </>
               )}
             </div>
           </div>
