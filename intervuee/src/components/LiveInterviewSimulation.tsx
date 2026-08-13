@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Video, Mic, Code2, Cpu, CheckCircle2, Sparkles, Activity, Timer, ShieldCheck } from 'lucide-react';
+import { Video, Mic, Code2, Cpu, CheckCircle2, Sparkles, Activity, Timer, ShieldCheck, Play } from 'lucide-react';
 
 const ROUNDS_DATA = [
   {
@@ -21,6 +21,10 @@ const ROUNDS_DATA = [
     speech: 'Interviewer: "How would you structure idempotency for retry calls?"',
   },
 ];
+
+// High quality video streams representing interviewer and candidate in live video call
+const MENTOR_VIDEO_URL = 'https://assets.mixkit.co/videos/preview/mixkit-man-having-a-video-call-on-laptop-42930-large.mp4';
+const STUDENT_VIDEO_URL = 'https://assets.mixkit.co/videos/preview/mixkit-young-woman-working-on-a-laptop-42861-large.mp4';
 
 export default function LiveInterviewSimulation() {
   const [roundIdx, setRoundIdx] = useState(0);
@@ -74,7 +78,7 @@ export default function LiveInterviewSimulation() {
 
   return (
     <div className="relative group">
-      {/* Main Glass Card */}
+      {/* Main Glass Card Container */}
       <div className="card p-5 shadow-2xl bg-gradient-to-b from-slate-900 via-slate-900 to-indigo-950 text-white border border-slate-800 rounded-3xl relative overflow-hidden transition-all duration-500 hover:shadow-brand-500/10">
         
         {/* Top Live Bar */}
@@ -84,8 +88,8 @@ export default function LiveInterviewSimulation() {
               <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-rose-400 opacity-75"></span>
               <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-rose-500"></span>
             </span>
-            <span className="font-bold tracking-wide text-rose-400 uppercase text-[11px]">
-              Live 1-on-1 Session
+            <span className="font-bold tracking-wide text-rose-400 uppercase text-[11px] flex items-center gap-1">
+              <Video size={13} className="text-rose-500" /> Live Interview Call (Playing Video)
             </span>
           </div>
 
@@ -99,77 +103,108 @@ export default function LiveInterviewSimulation() {
           </div>
         </div>
 
-        {/* Video Simulation Display Screen */}
-        <div className="aspect-[16/10] sm:aspect-video rounded-2xl bg-slate-950 border border-slate-800 relative overflow-hidden flex flex-col justify-between p-3.5 mb-4 group/screen shadow-inner">
+        {/* Video Simulation Display Screen Container */}
+        <div className="aspect-[16/10] sm:aspect-video rounded-2xl bg-slate-950 border border-slate-800 relative overflow-hidden flex flex-col justify-between p-3.5 mb-4 group/screen shadow-2xl">
           
-          {/* Subtle Grid Background */}
-          <div
-            className="absolute inset-0 opacity-20 pointer-events-none"
-            style={{
-              backgroundImage: 'radial-gradient(#6366f1 1px, transparent 1px)',
-              backgroundSize: '16px 16px',
-            }}
+          {/* BACKGROUND LOOPING VIDEO (Interviewer Feed Background) */}
+          <video
+            autoPlay
+            loop
+            muted
+            playsInline
+            className="absolute inset-0 w-full h-full object-cover opacity-40 pointer-events-none scale-105 filter brightness-90"
+            src={MENTOR_VIDEO_URL}
           />
+
+          {/* Dark Overlay gradient */}
+          <div className="absolute inset-0 bg-gradient-to-t from-slate-950 via-slate-950/60 to-slate-950/80 pointer-events-none" />
 
           {/* Top Video Header Overlay */}
           <div className="relative z-10 flex items-center justify-between flex-wrap gap-2">
-            <div className="flex items-center gap-2 bg-slate-900/80 backdrop-blur-md px-3 py-1 rounded-xl border border-white/10 shadow-md">
-              <Sparkles size={13} className="text-indigo-400 animate-spin" style={{ animationDuration: '6s' }} />
-              <span className="text-xs font-bold text-indigo-200 transition-all duration-300">
+            <div className="flex items-center gap-2 bg-slate-900/90 backdrop-blur-md px-3 py-1 rounded-xl border border-white/15 shadow-lg">
+              <Sparkles size={13} className="text-amber-400 animate-spin" style={{ animationDuration: '6s' }} />
+              <span className="text-xs font-bold text-amber-200 transition-all duration-300">
                 {currentRound.title}
               </span>
             </div>
 
-            <div className="flex items-center gap-1.5 bg-slate-900/80 backdrop-blur-md px-2.5 py-1 rounded-xl border border-white/10 text-[11px] text-emerald-400">
-              <CheckCircle2 size={12} /> AI Feedback Enabled
+            <div className="flex items-center gap-1.5 bg-emerald-950/90 backdrop-blur-md px-2.5 py-1 rounded-xl border border-emerald-500/30 text-[11px] text-emerald-300 font-semibold shadow-md">
+              <CheckCircle2 size={12} className="text-emerald-400" /> Live AI Feedback Active
             </div>
           </div>
 
-          {/* Center Stage: Split Screen Participants + Code/Diagram Animation */}
-          <div className="relative z-10 grid grid-cols-1 sm:grid-cols-2 gap-3 my-auto py-2">
+          {/* Center Stage: Split Screen Live Playing Videos */}
+          <div className="relative z-10 grid grid-cols-1 sm:grid-cols-2 gap-3 my-auto py-1">
             
-            {/* Left Box: Mentor Feed (Ex-Amazon Staff Eng) */}
-            <div className="relative bg-slate-900/90 border border-indigo-500/30 rounded-xl p-3 shadow-lg flex flex-col justify-between overflow-hidden group/mentor">
+            {/* Left Box: Mentor Live Video Feed (Ex-Amazon Staff Eng) */}
+            <div className="relative bg-slate-900/90 border border-indigo-500/40 rounded-xl p-3 shadow-2xl flex flex-col justify-between overflow-hidden min-h-[120px]">
+              {/* Actual Video Feed of Mentor */}
+              <video
+                autoPlay
+                loop
+                muted
+                playsInline
+                className="absolute inset-0 w-full h-full object-cover opacity-65 pointer-events-none transition-opacity duration-300 group-hover/screen:opacity-80"
+                src={MENTOR_VIDEO_URL}
+              />
+              <div className="absolute inset-0 bg-slate-950/40 pointer-events-none" />
+
               {/* Speaker Waveform animation */}
-              <div className="absolute top-2 right-2 flex items-end gap-0.5 h-3">
-                <span className="w-1 bg-emerald-400 rounded-full animate-bounce h-2" style={{ animationDelay: '0.1s' }} />
-                <span className="w-1 bg-emerald-400 rounded-full animate-bounce h-3" style={{ animationDelay: '0.3s' }} />
-                <span className="w-1 bg-emerald-400 rounded-full animate-bounce h-1.5" style={{ animationDelay: '0.2s' }} />
+              <div className="relative z-10 flex items-center justify-between mb-2">
+                <span className="text-[10px] font-bold text-white bg-indigo-600/90 backdrop-blur-md px-2 py-0.5 rounded-md border border-white/20 shadow-sm flex items-center gap-1">
+                  <Play size={9} className="fill-white" /> INTERVIEWER
+                </span>
+
+                <div className="flex items-end gap-0.5 h-3.5 bg-slate-950/80 px-1.5 py-0.5 rounded-full border border-white/10">
+                  <span className="w-1 bg-emerald-400 rounded-full animate-bounce h-2" style={{ animationDelay: '0.1s' }} />
+                  <span className="w-1 bg-emerald-400 rounded-full animate-bounce h-3.5" style={{ animationDelay: '0.3s' }} />
+                  <span className="w-1 bg-emerald-400 rounded-full animate-bounce h-1.5" style={{ animationDelay: '0.2s' }} />
+                </div>
               </div>
 
-              <div className="flex items-center gap-2.5 mb-2">
-                <div className="relative">
-                  <div className="w-9 h-9 rounded-full bg-gradient-to-tr from-purple-600 to-indigo-500 text-white flex items-center justify-center font-bold text-xs shadow-md border-2 border-emerald-400">
+              <div className="relative z-10 mt-auto">
+                <div className="flex items-center gap-2 mb-1">
+                  <div className="w-7 h-7 rounded-full bg-indigo-600 text-white font-bold text-[10px] flex items-center justify-center border border-white/30 shadow-md">
                     RS
                   </div>
-                  <span className="absolute -bottom-0.5 -right-0.5 w-3 h-3 bg-emerald-500 border-2 border-slate-900 rounded-full" />
-                </div>
-                <div className="min-w-0 flex-1">
-                  <div className="text-xs font-bold truncate text-white flex items-center gap-1">
-                    Rohan S. <ShieldCheck size={11} className="text-emerald-400 shrink-0" />
+                  <div>
+                    <div className="text-xs font-bold text-white flex items-center gap-1 drop-shadow-sm">
+                      Rohan S. <ShieldCheck size={11} className="text-emerald-400 shrink-0" />
+                    </div>
+                    <div className="text-[9.5px] text-indigo-200 font-medium drop-shadow-sm">Staff Eng, ex-Amazon</div>
                   </div>
-                  <div className="text-[10px] text-indigo-300 truncate">Staff Eng, ex-Amazon</div>
                 </div>
-              </div>
 
-              <div className="bg-slate-950/80 p-2 rounded-lg border border-white/5 text-[11px] text-slate-300 italic min-h-[36px] flex items-center transition-all duration-500">
-                "{currentRound.speech}"
+                <div className="bg-slate-950/85 backdrop-blur-md p-1.5 rounded-lg border border-white/10 text-[10.5px] text-slate-200 italic min-h-[30px] flex items-center shadow-md">
+                  "{currentRound.speech}"
+                </div>
               </div>
             </div>
 
-            {/* Right Box: Student / Live Code & Architecture Diagram */}
-            <div className="relative bg-slate-900/90 border border-brand-500/30 rounded-xl p-3 shadow-lg flex flex-col justify-between overflow-hidden">
-              <div className="flex items-center justify-between text-[10px] text-slate-400 mb-1.5">
-                <span className="flex items-center gap-1 font-mono text-indigo-300">
-                  <Code2 size={12} className="text-brand-400" /> main.ts
+            {/* Right Box: Student Live Video Feed + Live Code Overlay */}
+            <div className="relative bg-slate-900/90 border border-emerald-500/40 rounded-xl p-3 shadow-2xl flex flex-col justify-between overflow-hidden min-h-[120px]">
+              {/* Actual Video Feed of Student */}
+              <video
+                autoPlay
+                loop
+                muted
+                playsInline
+                className="absolute inset-0 w-full h-full object-cover opacity-60 pointer-events-none transition-opacity duration-300 group-hover/screen:opacity-75"
+                src={STUDENT_VIDEO_URL}
+              />
+              <div className="absolute inset-0 bg-slate-950/50 pointer-events-none" />
+
+              <div className="relative z-10 flex items-center justify-between text-[10px] text-slate-300 mb-1">
+                <span className="text-[10px] font-bold text-white bg-emerald-600/90 backdrop-blur-md px-2 py-0.5 rounded-md border border-white/20 shadow-sm flex items-center gap-1">
+                  <Code2 size={10} /> CANDIDATE (STUDENT)
                 </span>
-                <span className="flex items-center gap-1 text-emerald-400 font-semibold">
-                  <Cpu size={10} /> Live Architecture
+                <span className="flex items-center gap-1 text-emerald-300 font-semibold bg-slate-950/80 px-2 py-0.5 rounded-full border border-emerald-500/30">
+                  <Cpu size={10} /> System Diagram
                 </span>
               </div>
 
-              {/* Animated Typing Code Block */}
-              <div className="bg-slate-950 p-2 rounded-lg font-mono text-[10px] text-emerald-300 leading-relaxed overflow-hidden min-h-[58px] border border-white/5">
+              {/* Animated Typing Code Block Overlay */}
+              <div className="relative z-10 bg-slate-950/90 backdrop-blur-md p-2 rounded-lg font-mono text-[9.5px] text-emerald-300 leading-relaxed overflow-hidden min-h-[50px] border border-white/10 shadow-lg mt-auto">
                 <pre className="whitespace-pre-wrap font-mono">
                   {typedText}
                   {isTyping && <span className="animate-ping inline-block w-1.5 h-3 bg-brand-400 ml-0.5" />}
@@ -177,23 +212,23 @@ export default function LiveInterviewSimulation() {
               </div>
 
               {/* Diagram Node Pill */}
-              <div className="mt-1.5 text-[9.5px] font-mono text-indigo-200 bg-indigo-950/80 px-2 py-0.5 rounded border border-indigo-500/20 truncate">
+              <div className="relative z-10 mt-1 text-[9px] font-mono text-indigo-200 bg-indigo-950/90 backdrop-blur-md px-2 py-0.5 rounded border border-indigo-500/30 truncate shadow-sm">
                 Architecture: {currentRound.diagram}
               </div>
             </div>
           </div>
 
           {/* Bottom Overlay Status */}
-          <div className="relative z-10 flex items-center justify-between text-[11px] text-slate-400 border-t border-white/10 pt-2 flex-wrap gap-2">
+          <div className="relative z-10 flex items-center justify-between text-[11px] text-slate-300 border-t border-white/10 pt-2 flex-wrap gap-2">
             <div className="flex items-center gap-2">
-              <span className="flex items-center gap-1 text-slate-300">
+              <span className="flex items-center gap-1 text-slate-200 font-semibold">
                 <Mic size={11} className="text-emerald-400" /> Active Mic
               </span>
               <span>•</span>
-              <span className="text-indigo-300 font-medium">Candidate: Practicing Live</span>
+              <span className="text-indigo-300 font-medium">Student Giving Mock Interview</span>
             </div>
-            <span className="bg-brand-500/20 border border-brand-400/30 text-brand-300 px-2 py-0.5 rounded text-[10px] font-bold">
-              Repeat Simulation Mode 🔄
+            <span className="bg-rose-500/20 border border-rose-400/40 text-rose-300 px-2 py-0.5 rounded text-[10px] font-extrabold flex items-center gap-1">
+              <Play size={9} className="fill-rose-400 animate-pulse" /> Playing Video Loop 🔄
             </span>
           </div>
         </div>
