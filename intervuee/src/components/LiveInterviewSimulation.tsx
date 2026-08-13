@@ -107,7 +107,7 @@ export default function LiveInterviewSimulation() {
                 <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-rose-500"></span>
               </span>
               <span className="font-bold tracking-wide text-rose-400 uppercase text-[11px] flex items-center gap-1">
-                Student Success Journey (Continuous Animation Loop)
+                Student Success Journey
               </span>
             </div>
 
