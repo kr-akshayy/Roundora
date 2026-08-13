@@ -4,6 +4,9 @@ import { AlertCircle, Eye, EyeOff, ArrowLeft, Mail, KeyRound, ShieldCheck } from
 import { supabase } from '../lib/supabase';
 import { useAuthStore } from '../lib/auth-store';
 
+const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL as string;
+const SUPABASE_ANON_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY as string;
+
 type LoginMode = 'password' | 'otp';
 
 export default function Login() {
@@ -87,42 +90,49 @@ export default function Login() {
     return msg;
   };
 
-  // ── OTP login ───────────────────────────────────────────────
+  // ── OTP login (custom Edge Function via Resend) ─────────────
   const handleSendOTP = async (e: FormEvent) => {
     e.preventDefault();
     if (!otpEmail) return;
     setOtpError(null);
     setOtpLoading(true);
 
-    const { error: otpErr } = await supabase.auth.signInWithOtp({
-      email: otpEmail.trim(),
-      options: {
-        shouldCreateUser: false, // Only existing users can login with OTP
-      },
-    });
-
-    setOtpLoading(false);
-    if (otpErr) {
-      const rawMsg = parseAuthError(
-        otpErr,
-        'OTP bhej nahi paye. Make sure account registered hai ya Password tab se login karein.'
+    try {
+      const res = await fetch(
+        `${SUPABASE_URL}/functions/v1/send-otp-email`,
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${SUPABASE_ANON_KEY}`,
+          },
+          body: JSON.stringify({ email: otpEmail.trim() }),
+        }
       );
-      const lower = rawMsg.toLowerCase();
 
-      if (
-        lower.includes('signups not allowed') ||
-        lower.includes('user not found') ||
-        lower.includes('email not found')
-      ) {
-        setOtpError('Yeh email registered nahi hai. Pehle Sign Up karein.');
-      } else if (lower.includes('rate limit') || lower.includes('too many requests')) {
-        setOtpError('Bahut saare OTP attempts ho gaye hain. 5 minute baad try karein.');
-      } else {
-        setOtpError(rawMsg);
+      const data = await res.json();
+      setOtpLoading(false);
+
+      if (!res.ok || data.error) {
+        const errMsg: string = data.message || data.error || '';
+        const lower = errMsg.toLowerCase();
+        if (data.error === 'user_not_found' || lower.includes('registered nahi')) {
+          setOtpError('❌ Yeh email registered nahi hai. Pehle Sign Up karein.');
+        } else if (lower.includes('rate limit') || lower.includes('too many')) {
+          setOtpError('⏳ Bahut saare OTP attempts. 5 minute baad try karein.');
+        } else if (lower.includes('resend')) {
+          setOtpError('📧 Email service mein issue hai. Thodi der baad try karein.');
+        } else {
+          setOtpError('❌ OTP nahi bheja ja saka. Password tab se login try karein.');
+        }
+        return;
       }
-      return;
+
+      setOtpSent(true);
+    } catch {
+      setOtpLoading(false);
+      setOtpError('❌ Network error. Internet connection check karein aur dobara try karein.');
     }
-    setOtpSent(true);
   };
 
   const handleVerifyOTP = async (e: FormEvent) => {
