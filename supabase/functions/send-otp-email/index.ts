@@ -1,8 +1,8 @@
 // Supabase Edge Function: send-otp-email
-// Yeh function:
-// 1. User ka email leta hai
-// 2. Supabase Admin se OTP token generate karta hai
-// 3. Resend API se branded HTML email bhejta hai (same style as send-reset-email)
+// This function:
+// 1. Accepts user email
+// 2. Generates OTP token via Supabase Admin API
+// 3. Sends branded HTML email via Resend API
 
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 
@@ -35,7 +35,7 @@ Deno.serve(async (req: Request) => {
       { auth: { autoRefreshToken: false, persistSession: false } }
     );
 
-    // OTP generate karo via magiclink admin API
+    // Generate OTP via magiclink Admin API
     const { data: linkData, error: linkError } = await supabaseAdmin.auth.admin.generateLink({
       type: 'magiclink',
       email: email.trim(),

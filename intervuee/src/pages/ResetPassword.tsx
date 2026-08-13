@@ -14,28 +14,28 @@ export default function ResetPassword() {
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
-  // Supabase email link click hone par PASSWORD_RECOVERY event fire hota hai
-  // Hash se session automatically set ho jata hai
+  // Supabase email link click fires PASSWORD_RECOVERY event
+  // Hash sets session automatically
   useEffect(() => {
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
       if (event === 'PASSWORD_RECOVERY') {
-        // User authenticated hai, password change karne de
+        // User is authenticated, allow password update
         setPageStatus('ready');
       } else if (event === 'SIGNED_IN' && session) {
-        // Kuch cases mein SIGNED_IN bhi aata hai
+        // SIGNED_IN also fires in some recovery flows
         setPageStatus('ready');
       }
     });
 
-    // Check karo ki URL mein valid hash/token hai ya nahi
-    // Agar koi hash nahi hai, user directly page pe aaya hai
+    // Check if URL has valid hash/token
+    // If no hash/token, user landed directly on the page
     const hash = window.location.hash;
     const params = new URLSearchParams(window.location.search);
     
     if (!hash && !params.get('token') && !params.get('code')) {
-      // Thoda wait karo auth state ke liye
+      // Wait briefly for auth state
       const timer = setTimeout(() => {
-        // Agar 3 seconds mein ready nahi hua, invalid link show karo
+        // If not ready within 3 seconds, show invalid link
         setPageStatus((prev) => prev === 'loading' ? 'invalid_link' : prev);
       }, 3000);
       return () => {
@@ -55,11 +55,11 @@ export default function ResetPassword() {
 
     // Validations
     if (password.length < 8) {
-      setErrorMsg('Password kam se kam 8 characters ka hona chahiye.');
+      setErrorMsg('Password must be at least 8 characters long.');
       return;
     }
     if (password !== confirmPassword) {
-      setErrorMsg('Dono passwords match nahi kar rahe. Please check karein.');
+      setErrorMsg('Passwords do not match. Please try again.');
       return;
     }
 
@@ -73,24 +73,24 @@ export default function ResetPassword() {
       return;
     }
 
-    // Sign out karo so user fresh login kare naye password se
+    // Sign out user so they log in fresh with the new password
     await supabase.auth.signOut();
     setPageStatus('success');
 
-    // 3 seconds baad login pe redirect
+    // Redirect to login after 3 seconds
     setTimeout(() => navigate('/login'), 3000);
   };
 
   // Password strength checker
   const getPasswordStrength = (pwd: string): { label: string; color: string; width: string } => {
     if (pwd.length === 0) return { label: '', color: '#e2e8f0', width: '0%' };
-    if (pwd.length < 6) return { label: 'Bahut Kamzor', color: '#ef4444', width: '20%' };
-    if (pwd.length < 8) return { label: 'Kamzor', color: '#f97316', width: '40%' };
-    if (pwd.length < 12) return { label: 'Theek Hai', color: '#eab308', width: '65%' };
+    if (pwd.length < 6) return { label: 'Very Weak', color: '#ef4444', width: '20%' };
+    if (pwd.length < 8) return { label: 'Weak', color: '#f97316', width: '40%' };
+    if (pwd.length < 12) return { label: 'Good', color: '#eab308', width: '65%' };
     if (/[A-Z]/.test(pwd) && /[0-9]/.test(pwd) && /[^a-zA-Z0-9]/.test(pwd)) {
-      return { label: 'Bahut Mazboot! 💪', color: '#22c55e', width: '100%' };
+      return { label: 'Strong 💪', color: '#22c55e', width: '100%' };
     }
-    return { label: 'Achha', color: '#3b82f6', width: '85%' };
+    return { label: 'Strong', color: '#3b82f6', width: '85%' };
   };
 
   const strength = getPasswordStrength(password);
@@ -112,8 +112,8 @@ export default function ResetPassword() {
           />
           <span style={styles.logoText}>Roundora</span>
         </div>
-        <h1 style={styles.heroTitle}>Naya Password Set Karein 🔑</h1>
-        <p style={styles.heroSub}>Ek strong password choose karein</p>
+        <h1 style={styles.heroTitle}>Set New Password 🔑</h1>
+        <p style={styles.heroSub}>Choose a strong password for your account</p>
       </div>
 
       <div style={styles.sheet}>
@@ -124,7 +124,7 @@ export default function ResetPassword() {
           <div style={styles.centerContent}>
             <div style={styles.spinner} />
             <p style={{ color: '#64748b', marginTop: '16px', fontSize: '14px' }}>
-              Aapka reset link verify ho raha hai...
+              Verifying your reset link...
             </p>
           </div>
         )}
@@ -135,15 +135,15 @@ export default function ResetPassword() {
             <div style={{ ...styles.iconCircle, backgroundColor: '#fff1f2', border: '2px solid #fecdd3' }}>
               <AlertCircle size={40} color="#be123c" />
             </div>
-            <h2 style={{ ...styles.stateTitle, color: '#be123c' }}>Link Invalid Hai ❌</h2>
+            <h2 style={{ ...styles.stateTitle, color: '#be123c' }}>Invalid or Expired Link ❌</h2>
             <p style={styles.stateDesc}>
-              Yeh reset link expire ho gaya hai ya valid nahi hai. Please naya link request karein.
+              This password reset link has expired or is invalid. Please request a new reset link.
             </p>
             <Link to="/forgot-password" style={styles.ctaLink}>
-              🔄 Naya Reset Link Maango
+              🔄 Request New Reset Link
             </Link>
             <Link to="/login" style={styles.secondaryLink}>
-              ← Wapas Login Par Jao
+              ← Back to Login
             </Link>
           </div>
         )}
@@ -154,15 +154,15 @@ export default function ResetPassword() {
             <div style={{ ...styles.iconCircle, backgroundColor: '#f0fdf4', border: '2px solid #bbf7d0' }}>
               <CheckCircle size={48} color="#16a34a" />
             </div>
-            <h2 style={styles.stateTitle}>Password Reset Ho Gaya! 🎉</h2>
+            <h2 style={styles.stateTitle}>Password Reset Successfully! 🎉</h2>
             <p style={styles.stateDesc}>
-              Aapka naya password successfully set ho gaya. Ab aap naye password se login kar sakte hain.
+              Your new password has been set. You can now log in using your new password.
             </p>
             <div style={styles.autoRedirectBadge}>
-              ⏳ 3 seconds mein login page pe redirect ho raha hai...
+              ⏳ Redirecting to login page in 3 seconds...
             </div>
             <Link to="/login" style={styles.ctaLink}>
-              → Abhi Login Karein
+              → Log In Now
             </Link>
           </div>
         )}
@@ -174,8 +174,7 @@ export default function ResetPassword() {
             <div style={styles.infoCard}>
               <Lock size={18} color="#1e40af" style={{ flexShrink: 0, marginTop: '2px' }} />
               <div style={{ fontSize: '13px', color: '#1e40af', lineHeight: 1.5 }}>
-                <strong>Tips:</strong> Ek strong password mein uppercase, numbers, aur special
-                characters (@#$!) honay chahiye.
+                <strong>Tip:</strong> A strong password should contain uppercase letters, numbers, and special characters (@#$!).
               </div>
             </div>
 
@@ -189,7 +188,7 @@ export default function ResetPassword() {
 
             {/* New Password */}
             <div style={styles.fieldGroup}>
-              <label htmlFor="new-password" style={styles.fieldLabel}>Naya Password</label>
+              <label htmlFor="new-password" style={styles.fieldLabel}>New Password</label>
               <div style={styles.passwordWrap}>
                 <input
                   id="new-password"
@@ -234,7 +233,7 @@ export default function ResetPassword() {
 
             {/* Confirm Password */}
             <div style={styles.fieldGroup}>
-              <label htmlFor="confirm-password" style={styles.fieldLabel}>Password Confirm Karein</label>
+              <label htmlFor="confirm-password" style={styles.fieldLabel}>Confirm Password</label>
               <div style={styles.passwordWrap}>
                 <input
                   id="confirm-password"
@@ -267,12 +266,12 @@ export default function ResetPassword() {
               </div>
               {confirmPassword && confirmPassword !== password && (
                 <span style={{ fontSize: '12px', color: '#ef4444', marginTop: '4px' }}>
-                  ❌ Passwords match nahi kar rahe
+                  ❌ Passwords do not match
                 </span>
               )}
               {confirmPassword && confirmPassword === password && (
                 <span style={{ fontSize: '12px', color: '#22c55e', marginTop: '4px' }}>
-                  ✅ Passwords match kar rahe hain
+                  ✅ Passwords match
                 </span>
               )}
             </div>
@@ -293,7 +292,7 @@ export default function ResetPassword() {
                   <span style={styles.spinnerWhite} /> Updating Password...
                 </>
               ) : (
-                '🔐 Password Update Karein'
+                '🔐 Update Password'
               )}
             </button>
           </form>

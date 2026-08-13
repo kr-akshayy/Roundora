@@ -116,7 +116,7 @@ export default function Login() {
       if (!res.ok || data.error) {
         const errMsg: string = data.message || data.error || '';
         const lower = errMsg.toLowerCase();
-        if (data.error === 'user_not_found' || lower.includes('registered nahi')) {
+        if (data.error === 'user_not_found' || lower.includes('not registered') || lower.includes('not found')) {
           setOtpError('This email is not registered. Please sign up first.');
         } else if (lower.includes('rate limit') || lower.includes('too many')) {
           setOtpError('Too many OTP attempts. Please wait 5 minutes and try again.');

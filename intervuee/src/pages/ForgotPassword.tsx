@@ -95,23 +95,23 @@ export default function ForgotPassword() {
             </div>
             <h2 style={styles.successTitle}>Email Sent! 🎉</h2>
             <p style={styles.successDesc}>
-              Agar <strong>{email}</strong> hamare system mein registered hai, to aapko ek
-              password reset link mil jayega. Please apna inbox aur spam folder check karein.
+              If <strong>{email}</strong> is registered in our system, you will receive a
+              password reset link shortly. Please check your inbox and spam folder.
             </p>
             <div style={styles.infoBox}>
               <span style={{ fontSize: '20px' }}>⏱️</span>
               <p style={{ margin: 0, fontSize: '13px', color: '#0369a1', lineHeight: 1.5 }}>
-                Link <strong>1 ghante</strong> tak valid rahega. Naya link chahiye? Phir se form fill karein.
+                The link will remain valid for <strong>1 hour</strong>. Need another link? Fill out the form again.
               </p>
             </div>
             <Link to="/login" style={styles.backToLoginBtn}>
-              ← Wapas Login Par Jao
+              ← Back to Login
             </Link>
             <button
               onClick={() => { setStatus('idle'); setEmail(''); setErrorMsg(null); }}
               style={styles.tryAgainBtn}
             >
-              Doosra Email Try Karo
+              Try Another Email
             </button>
           </div>
         ) : (
@@ -125,8 +125,7 @@ export default function ForgotPassword() {
                   Password Reset Link
                 </div>
                 <div style={{ fontSize: '13px', color: '#1e40af', lineHeight: 1.5 }}>
-                  Apna registered email address daalein. Hum aapko ek secure link bhejenge
-                  jisse aap naya password set kar sakte hain.
+                  Enter your registered email address. We will send you a secure link to reset your password.
                 </div>
               </div>
             </div>
@@ -177,8 +176,8 @@ export default function ForgotPassword() {
 
             {/* Back to login */}
             <p style={styles.backLink}>
-              Password yaad aa gaya?{' '}
-              <Link to="/login" style={styles.backLinkAnchor}>Wapas Login Par Jao</Link>
+              Remembered your password?{' '}
+              <Link to="/login" style={styles.backLinkAnchor}>Back to Login</Link>
             </p>
           </form>
         )}

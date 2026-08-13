@@ -1,8 +1,8 @@
 // Supabase Edge Function: send-reset-email
-// Yeh function:
-// 1. User ka email leta hai
-// 2. Supabase Admin se secure password reset link generate karta hai
-// 3. Resend API se branded HTML email bhejta hai
+// This function:
+// 1. Accepts user email
+// 2. Generates secure password reset link via Supabase Admin API
+// 3. Sends branded HTML email via Resend API
 
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 
@@ -27,7 +27,7 @@ Deno.serve(async (req: Request) => {
       );
     }
 
-    // Supabase Admin client (service_role key use karta hai)
+    // Supabase Admin client
     const serviceRoleKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') || Deno.env.get('service_role') || '';
     const supabaseUrl = Deno.env.get('SUPABASE_URL') || '';
 
@@ -37,7 +37,7 @@ Deno.serve(async (req: Request) => {
       { auth: { autoRefreshToken: false, persistSession: false } }
     );
 
-    // Secure password reset link generate karo
+    // Generate secure password reset link
     const { data: linkData, error: linkError } = await supabaseAdmin.auth.admin.generateLink({
       type: 'recovery',
       email: email,
@@ -56,7 +56,7 @@ Deno.serve(async (req: Request) => {
       throw new Error('Failed to generate reset link from Supabase Auth');
     }
 
-    // Resend API se email bhejo
+    // Send email via Resend API
     const RESEND_API_KEY = Deno.env.get('RESEND_API_KEY');
     if (!RESEND_API_KEY) {
       throw new Error('RESEND_API_KEY not configured');

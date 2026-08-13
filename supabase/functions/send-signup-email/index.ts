@@ -1,9 +1,9 @@
 // Supabase Edge Function: send-signup-email
 // Flow:
-// 1. Email + password + fullName + role leta hai
-// 2. Supabase Admin se user create karta hai (no default email)
-// 3. Signup OTP generate karta hai
-// 4. Resend se branded welcome email bhejta hai
+// 1. Accepts email + password + fullName + role
+// 2. Creates user via Supabase Admin API
+// 3. Generates signup OTP
+// 4. Sends branded welcome email via Resend API
 
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 
