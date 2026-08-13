@@ -13,6 +13,9 @@ import {
   CheckCircle2,
   PhoneOff,
   Headphones,
+  AlertTriangle,
+  X,
+  Send,
 } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { useAuthStore } from '../lib/auth-store';
@@ -20,7 +23,6 @@ import type { Booking } from '../types';
 
 const TEAM_CONTACT_NUMBER = '7488455190';
 const TEAM_CONTACT_PHONE = '+917488455190';
-const TEAM_CONTACT_EMAIL = 'support@roundora.in';
 
 export default function BookingRoom() {
   const { bookingId } = useParams<{ bookingId: string }>();
@@ -36,6 +38,15 @@ export default function BookingRoom() {
   const [reviewSubmitting, setReviewSubmitting] = useState(false);
   const [reviewSubmitted, setReviewSubmitted] = useState(false);
   const [reviewError, setReviewError] = useState<string | null>(null);
+
+  // Support ticket modal state
+  const [showSupportModal, setShowSupportModal] = useState(false);
+  const [ticketCategory, setTicketCategory] = useState<'misbehaviour' | 'technical' | 'billing' | 'general'>('misbehaviour');
+  const [ticketSubject, setTicketSubject] = useState('');
+  const [ticketMessage, setTicketMessage] = useState('');
+  const [ticketSending, setTicketSending] = useState(false);
+  const [ticketSent, setTicketSent] = useState(false);
+  const [ticketError, setTicketError] = useState<string | null>(null);
 
   useEffect(() => {
     const fetchBooking = async () => {
@@ -97,6 +108,53 @@ export default function BookingRoom() {
     setReviewSubmitting(false);
   };
 
+  const handleSendTicket = async (e: FormEvent) => {
+    e.preventDefault();
+    if (!ticketMessage.trim() || !profile) return;
+
+    setTicketSending(true);
+    setTicketError(null);
+
+    const otherPerson = profile?.role === 'mentor' ? booking?.student : booking?.mentor;
+
+    try {
+      const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
+      const SUPABASE_ANON_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY;
+
+      const userEmail = profile.email || profile.full_name || 'user@roundora.in';
+
+      const res = await fetch(`${SUPABASE_URL}/functions/v1/send-support-ticket`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${SUPABASE_ANON_KEY}`,
+        },
+        body: JSON.stringify({
+          senderEmail: userEmail,
+          senderName: profile.full_name,
+          issueType: ticketCategory,
+          subject: ticketSubject.trim() || `${ticketCategory.toUpperCase()} Report - Session ${bookingId}`,
+          message: ticketMessage.trim(),
+          bookingId,
+          participantName: otherPerson?.full_name,
+        }),
+      });
+
+      const resData = await res.json().catch(() => ({}));
+      setTicketSending(false);
+
+      if (!res.ok || resData.error) {
+        throw new Error(resData.error || 'Failed to submit ticket');
+      }
+
+      setTicketSent(true);
+    } catch (err) {
+      console.error('Ticket submit error:', err);
+      setTicketSending(false);
+      setTicketError(err instanceof Error ? err.message : 'Network error. Please try again.');
+    }
+  };
+
   if (loading) {
     return (
       <div className="max-w-5xl mx-auto px-4 sm:px-6 py-12">
@@ -150,6 +208,17 @@ export default function BookingRoom() {
         </Link>
 
         <div className="flex items-center gap-2 flex-wrap">
+          <button
+            onClick={() => {
+              setTicketCategory('general');
+              setShowSupportModal(true);
+              setTicketSent(false);
+            }}
+            className="btn-secondary text-xs sm:text-sm !px-3 !py-2 shrink-0 shadow-sm inline-flex items-center gap-1.5"
+          >
+            <Mail size={14} /> Send Support Ticket
+          </button>
+
           <a
             href={jitsiUrl}
             target="_blank"
@@ -351,11 +420,34 @@ export default function BookingRoom() {
                 </div>
 
                 <p className="text-xs text-slate-600 mb-4 leading-relaxed">
-                  Our dedicated support team is available to assist you with booking issues, payment queries, or technical feedback.
+                  Our support team is available to assist you. Send an instant support ticket directly to Admin or connect via Call / WhatsApp.
                 </p>
 
                 {/* Direct Contact Buttons */}
                 <div className="space-y-2.5">
+                  {/* Send Ticket directly to Admin */}
+                  <button
+                    onClick={() => {
+                      setTicketCategory('general');
+                      setShowSupportModal(true);
+                      setTicketSent(false);
+                    }}
+                    className="w-full flex items-center justify-between p-3 rounded-xl bg-indigo-600 text-white hover:bg-indigo-700 transition-all text-xs font-semibold group shadow-md"
+                  >
+                    <div className="flex items-center gap-2.5">
+                      <div className="w-8 h-8 rounded-lg bg-white/20 text-white flex items-center justify-center shrink-0">
+                        <Mail size={16} />
+                      </div>
+                      <div className="text-left">
+                        <div className="font-bold text-white">Send Ticket to Admin</div>
+                        <div className="text-[11px] text-indigo-200">Emails Admin Directly</div>
+                      </div>
+                    </div>
+                    <span className="font-bold text-[11px] bg-white/20 px-2.5 py-1 rounded-lg">
+                      Submit Ticket →
+                    </span>
+                  </button>
+
                   {/* Phone Call */}
                   <a
                     href={`tel:${TEAM_CONTACT_PHONE}`}
@@ -405,14 +497,16 @@ export default function BookingRoom() {
                   <p className="text-[11px] text-rose-700 leading-normal mb-2.5">
                     If the interviewer or student engaged in inappropriate conduct or guidelines violation, report it directly to Admin.
                   </p>
-                  <a
-                    href={`https://wa.me/91${TEAM_CONTACT_NUMBER}?text=URGENT%3A%20Misbehaviour%20Report%20for%20Session%20ID%3A%20${bookingId}%20%7C%20Participant%3A%20${encodeURIComponent(otherPerson?.full_name ?? '')}`}
-                    target="_blank"
-                    rel="noopener noreferrer"
+                  <button
+                    onClick={() => {
+                      setTicketCategory('misbehaviour');
+                      setShowSupportModal(true);
+                      setTicketSent(false);
+                    }}
                     className="inline-flex items-center justify-center w-full py-2 bg-rose-600 hover:bg-rose-700 text-white font-bold text-xs rounded-lg shadow-sm transition-colors"
                   >
-                    🚩 Report Misbehaviour ({TEAM_CONTACT_NUMBER})
-                  </a>
+                    🚩 Report Misbehaviour to Admin
+                  </button>
                 </div>
 
                 {/* Return button */}
@@ -426,6 +520,116 @@ export default function BookingRoom() {
                 </div>
               </div>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* SUPPORT TICKET MODAL */}
+      {showSupportModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/70 backdrop-blur-sm animate-fadeIn">
+          <div className="bg-white rounded-3xl max-w-lg w-full p-6 shadow-2xl border border-slate-200 relative overflow-hidden">
+            {/* Close Button */}
+            <button
+              onClick={() => setShowSupportModal(false)}
+              className="absolute top-4 right-4 p-2 text-slate-400 hover:text-slate-700 hover:bg-slate-100 rounded-full transition-colors"
+            >
+              <X size={20} />
+            </button>
+
+            {ticketSent ? (
+              <div className="text-center py-6">
+                <div className="w-16 h-16 bg-emerald-100 text-emerald-600 rounded-full flex items-center justify-center mx-auto mb-3">
+                  <CheckCircle2 size={36} />
+                </div>
+                <h3 className="text-xl font-bold text-slate-900 mb-1">Ticket Submitted to Admin!</h3>
+                <p className="text-slate-600 text-xs max-w-xs mx-auto mb-5 leading-relaxed">
+                  Your message has been emailed directly to Roundora Admin Team. A confirmation email was sent to your registered address.
+                </p>
+                <button
+                  onClick={() => setShowSupportModal(false)}
+                  className="btn-primary w-full justify-center"
+                >
+                  Close Window
+                </button>
+              </div>
+            ) : (
+              <form onSubmit={handleSendTicket} className="space-y-4">
+                <div className="flex items-center gap-2 text-indigo-900 font-extrabold text-lg border-b border-slate-100 pb-3">
+                  {ticketCategory === 'misbehaviour' ? (
+                    <AlertTriangle className="text-rose-600" size={22} />
+                  ) : (
+                    <Headphones className="text-indigo-600" size={22} />
+                  )}
+                  {ticketCategory === 'misbehaviour' ? 'Report Misbehaviour / Safety Alert' : 'Send Support Ticket to Admin'}
+                </div>
+
+                {ticketError && (
+                  <div className="bg-rose-50 border border-rose-200 text-rose-700 text-xs p-3 rounded-xl">
+                    {ticketError}
+                  </div>
+                )}
+
+                {/* Category selector */}
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 mb-1">Category</label>
+                  <select
+                    value={ticketCategory}
+                    onChange={(e) => setTicketCategory(e.target.value as any)}
+                    className="w-full p-2.5 rounded-xl border border-slate-200 text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-indigo-500/20 bg-slate-50"
+                  >
+                    <option value="misbehaviour">🚨 Misbehaviour / Harassment / Guidelines Violation</option>
+                    <option value="technical">💻 Technical / Audio Video Issue</option>
+                    <option value="billing">💳 Payment / Booking Inquiry</option>
+                    <option value="general">❓ General Question / Feedback</option>
+                  </select>
+                </div>
+
+                {/* Subject */}
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 mb-1">Subject</label>
+                  <input
+                    type="text"
+                    required
+                    value={ticketSubject}
+                    onChange={(e) => setTicketSubject(e.target.value)}
+                    placeholder={ticketCategory === 'misbehaviour' ? 'e.g. Inappropriate behavior during interview' : 'Brief title of your issue'}
+                    className="w-full p-2.5 rounded-xl border border-slate-200 text-xs focus:outline-none focus:ring-2 focus:ring-indigo-500/20 bg-slate-50"
+                  />
+                </div>
+
+                {/* Message */}
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 mb-1">Message Description</label>
+                  <textarea
+                    rows={4}
+                    required
+                    value={ticketMessage}
+                    onChange={(e) => setTicketMessage(e.target.value)}
+                    placeholder="Describe what happened or what help you need..."
+                    className="w-full p-3 rounded-xl border border-slate-200 text-xs focus:outline-none focus:ring-2 focus:ring-indigo-500/20 bg-slate-50"
+                  />
+                </div>
+
+                <div className="pt-2 flex items-center justify-end gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setShowSupportModal(false)}
+                    className="btn-secondary !px-4 !py-2 text-xs"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={ticketSending}
+                    className={`btn-primary !px-5 !py-2 text-xs font-bold inline-flex items-center gap-1.5 ${
+                      ticketCategory === 'misbehaviour' ? '!bg-rose-600 hover:!bg-rose-700 !shadow-rose-500/20' : ''
+                    }`}
+                  >
+                    <Send size={13} /> {ticketSending ? 'Sending to Admin...' : 'Submit Ticket to Admin'}
+                  </button>
+                </div>
+              </form>
+            )}
           </div>
         </div>
       )}
