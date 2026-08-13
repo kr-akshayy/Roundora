@@ -35,21 +35,6 @@ Deno.serve(async (req: Request) => {
       { auth: { autoRefreshToken: false, persistSession: false } }
     );
 
-    // Check karo ki user exist karta hai ya nahi
-    const { data: userList, error: userListErr } = await supabaseAdmin.auth.admin.listUsers();
-    if (userListErr) throw new Error(`User check error: ${userListErr.message}`);
-
-    const userExists = userList.users.some(
-      (u: { email?: string }) => u.email?.toLowerCase() === email.trim().toLowerCase()
-    );
-
-    if (!userExists) {
-      return new Response(
-        JSON.stringify({ error: 'user_not_found', message: 'This email is not registered. Please sign up first.' }),
-        { status: 404, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
-    }
-
     // OTP generate karo via magiclink admin API
     const { data: linkData, error: linkError } = await supabaseAdmin.auth.admin.generateLink({
       type: 'magiclink',
@@ -57,6 +42,18 @@ Deno.serve(async (req: Request) => {
     });
 
     if (linkError) {
+      const msg = linkError.message.toLowerCase();
+      if (
+        msg.includes('not found') ||
+        msg.includes('user_not_found') ||
+        msg.includes('does not exist') ||
+        msg.includes('invalid')
+      ) {
+        return new Response(
+          JSON.stringify({ error: 'user_not_found', message: 'This email is not registered. Please sign up first.' }),
+          { status: 404, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
       console.error('OTP generation error:', linkError);
       throw new Error(`OTP generation error: ${linkError.message}`);
     }

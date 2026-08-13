@@ -36,20 +36,7 @@ Deno.serve(async (req: Request) => {
       { auth: { autoRefreshToken: false, persistSession: false } }
     );
 
-    // Check karein ki user already exist toh nahi karta
-    const { data: userList } = await supabaseAdmin.auth.admin.listUsers();
-    const existingUser = userList?.users?.find(
-      (u: { email?: string }) => u.email?.toLowerCase() === email.trim().toLowerCase()
-    );
-
-    if (existingUser) {
-      return new Response(
-        JSON.stringify({ error: 'already_registered', message: 'This email is already registered. Please log in instead.' }),
-        { status: 409, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
-    }
-
-    // User create karein via admin (email_confirm false - hum khud bhejenge)
+    // Direct create user via admin (email_confirm false)
     const { data: newUser, error: createError } = await supabaseAdmin.auth.admin.createUser({
       email: email.trim(),
       password: password,
@@ -58,6 +45,18 @@ Deno.serve(async (req: Request) => {
     });
 
     if (createError) {
+      const msg = createError.message.toLowerCase();
+      if (
+        msg.includes('already') ||
+        msg.includes('exists') ||
+        msg.includes('registered') ||
+        msg.includes('duplicate')
+      ) {
+        return new Response(
+          JSON.stringify({ error: 'already_registered', message: 'This email is already registered. Please log in instead.' }),
+          { status: 409, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
       console.error('User create error:', createError);
       throw new Error(`User creation error: ${createError.message}`);
     }
