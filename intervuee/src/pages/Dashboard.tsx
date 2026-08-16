@@ -1,6 +1,6 @@
 import { useEffect, useState, FormEvent } from 'react';
 import { Link } from 'react-router-dom';
-import { Video, Calendar, Plus, Clock, CheckCircle2, MessageSquarePlus, Trash2, X, Copy, ExternalLink, Bell, CalendarPlus, FileText } from 'lucide-react';
+import { Video, Calendar, Plus, Clock, CheckCircle2, MessageSquarePlus, Trash2, X, Copy, ExternalLink, Bell, CalendarPlus, FileText, AlertTriangle, XCircle } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { useAuthStore } from '../lib/auth-store';
 import StarRating from '../components/StarRating';
@@ -101,11 +101,88 @@ function downloadICS(booking: Booking) {
   URL.revokeObjectURL(url);
 }
 
+function CancelConfirmationModal({
+  booking,
+  onClose,
+  onConfirm,
+}: {
+  booking: Booking;
+  onClose: () => void;
+  onConfirm: (reason: string) => Promise<void>;
+}) {
+  const [reason, setReason] = useState('');
+  const [submitting, setSubmitting] = useState(false);
+  const otherName = booking.student?.full_name ?? booking.mentor?.full_name ?? 'Participant';
+
+  const handleSubmit = async (e: FormEvent) => {
+    e.preventDefault();
+    setSubmitting(true);
+    await onConfirm(reason);
+    setSubmitting(false);
+    onClose();
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4 animate-fadeIn">
+      <div className="bg-white rounded-3xl max-w-md w-full p-6 shadow-2xl relative border border-slate-100">
+        <button
+          onClick={onClose}
+          className="absolute top-4 right-4 p-2 text-slate-400 hover:text-slate-700 hover:bg-slate-100 rounded-full transition-colors"
+        >
+          <X size={20} />
+        </button>
+
+        <form onSubmit={handleSubmit} className="space-y-4">
+          <div className="flex items-center gap-2 text-rose-600 font-extrabold text-lg border-b border-slate-100 pb-3">
+            <AlertTriangle size={22} /> Cancel Interview Session
+          </div>
+
+          <p className="text-slate-600 text-xs leading-relaxed">
+            Are you sure you want to cancel the mock interview session with <strong>{otherName}</strong>?
+            An automated notification email will be sent immediately.
+          </p>
+
+          <div>
+            <label className="block text-xs font-bold text-slate-700 mb-1">
+              Cancellation Reason (Optional)
+            </label>
+            <textarea
+              rows={3}
+              value={reason}
+              onChange={(e) => setReason(e.target.value)}
+              placeholder="e.g. Schedule conflict, emergency..."
+              className="w-full p-3 rounded-xl border border-slate-200 text-xs focus:outline-none focus:ring-2 focus:ring-rose-500/20 bg-slate-50"
+            />
+          </div>
+
+          <div className="pt-2 flex items-center justify-end gap-2">
+            <button
+              type="button"
+              onClick={onClose}
+              className="btn-secondary !px-4 !py-2 text-xs"
+            >
+              Keep Session
+            </button>
+            <button
+              type="submit"
+              disabled={submitting}
+              className="bg-rose-600 hover:bg-rose-700 text-white font-bold text-xs px-5 py-2 rounded-xl shadow-md transition-all inline-flex items-center gap-1.5 disabled:opacity-50"
+            >
+              <XCircle size={14} /> {submitting ? 'Cancelling...' : 'Confirm Cancel'}
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+}
+
 function StudentDashboard({ userId }: { userId: string }) {
   const [bookings, setBookings] = useState<Booking[]>([]);
   const [reviewedBookingIds, setReviewedBookingIds] = useState<Set<string>>(new Set());
   const [reviewingId, setReviewingId] = useState<string | null>(null);
   const [cancellingId, setCancellingId] = useState<string | null>(null);
+  const [cancelModalBooking, setCancelModalBooking] = useState<Booking | null>(null);
   const [loading, setLoading] = useState(true);
 
   const fetchData = async () => {
@@ -127,7 +204,7 @@ function StudentDashboard({ userId }: { userId: string }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [userId]);
 
-  const sendCancellationEmail = async (booking: Booking, cancelledBy: 'mentor' | 'student') => {
+  const sendCancellationEmail = async (booking: Booking, cancelledBy: 'mentor' | 'student', reason?: string) => {
     try {
       let studentEmail = booking.student?.email;
       if (!studentEmail && booking.student_id) {
@@ -167,6 +244,7 @@ function StudentDashboard({ userId }: { userId: string }) {
           sessionTime: timeStr,
           topic: booking.slot?.topic ? topicLabel(booking.slot.topic) : '1-on-1 Interview',
           cancelledBy,
+          reason,
         }),
       });
     } catch (err) {
@@ -174,7 +252,7 @@ function StudentDashboard({ userId }: { userId: string }) {
     }
   };
 
-  const handleCancelBooking = async (booking: Booking) => {
+  const handleCancelBooking = async (booking: Booking, reason?: string) => {
     setCancellingId(booking.id);
     await supabase.from('bookings').update({ status: 'cancelled' }).eq('id', booking.id);
     // Free up the slot
@@ -182,7 +260,7 @@ function StudentDashboard({ userId }: { userId: string }) {
       await supabase.from('slots').update({ is_booked: false }).eq('id', booking.slot_id);
     }
     // Send email notification to student
-    await sendCancellationEmail(booking, 'student');
+    await sendCancellationEmail(booking, 'student', reason);
     setCancellingId(null);
     fetchData();
   };
@@ -288,7 +366,7 @@ function StudentDashboard({ userId }: { userId: string }) {
                     <CalendarPlus size={13} /> Add to Calendar
                   </button>
                   <button
-                    onClick={() => handleCancelBooking(b)}
+                    onClick={() => setCancelModalBooking(b)}
                     disabled={cancellingId === b.id}
                     className="flex items-center gap-1 text-xs px-3 py-2 rounded-xl border border-rose-200 text-rose-600 bg-rose-50 hover:bg-rose-100 transition-colors disabled:opacity-50"
                     title="Cancel booking"
@@ -343,6 +421,16 @@ function StudentDashboard({ userId }: { userId: string }) {
           )}
         </div>
       ))}
+
+      {cancelModalBooking && (
+        <CancelConfirmationModal
+          booking={cancelModalBooking}
+          onClose={() => setCancelModalBooking(null)}
+          onConfirm={async (reason) => {
+            await handleCancelBooking(cancelModalBooking, reason);
+          }}
+        />
+      )}
     </div>
   );
 }
@@ -463,8 +551,9 @@ function MentorDashboard({ userId, mentorProfileId, expertise }: { userId: strin
   };
 
   const [cancellingBookingId, setCancellingBookingId] = useState<string | null>(null);
+  const [cancelModalBooking, setCancelModalBooking] = useState<Booking | null>(null);
 
-  const sendCancellationEmailToStudent = async (booking: Booking) => {
+  const sendCancellationEmailToStudent = async (booking: Booking, reason?: string) => {
     try {
       let studentEmail = booking.student?.email;
       if (!studentEmail && booking.student_id) {
@@ -501,6 +590,7 @@ function MentorDashboard({ userId, mentorProfileId, expertise }: { userId: strin
           sessionTime: timeStr,
           topic: booking.slot?.topic ? topicLabel(booking.slot.topic) : '1-on-1 Interview',
           cancelledBy: 'mentor',
+          reason,
         }),
       });
     } catch (err) {
@@ -508,17 +598,13 @@ function MentorDashboard({ userId, mentorProfileId, expertise }: { userId: strin
     }
   };
 
-  const handleCancelBookingByMentor = async (booking: Booking) => {
-    if (!window.confirm(`Are you sure you want to cancel this booking with ${booking.student?.full_name ?? 'Student'}? An email notification will be sent to the student.`)) {
-      return;
-    }
-
+  const handleCancelBookingByMentor = async (booking: Booking, reason?: string) => {
     setCancellingBookingId(booking.id);
     await supabase.from('bookings').update({ status: 'cancelled' }).eq('id', booking.id);
     if (booking.slot_id) {
       await supabase.from('slots').update({ is_booked: false }).eq('id', booking.slot_id);
     }
-    await sendCancellationEmailToStudent(booking);
+    await sendCancellationEmailToStudent(booking, reason);
     setCancellingBookingId(null);
     fetchData();
   };
@@ -736,7 +822,7 @@ function MentorDashboard({ userId, mentorProfileId, expertise }: { userId: strin
                             <CheckCircle2 size={13} /> Mark done
                           </button>
                           <button
-                            onClick={() => handleCancelBookingByMentor(b)}
+                            onClick={() => setCancelModalBooking(b)}
                             disabled={cancellingBookingId === b.id}
                             className="text-xs px-3 py-2 rounded-xl border border-rose-200 text-rose-600 bg-rose-50 hover:bg-rose-100 transition-colors disabled:opacity-50 font-medium"
                             title="Cancel session & send email to student"
@@ -759,6 +845,16 @@ function MentorDashboard({ userId, mentorProfileId, expertise }: { userId: strin
           )}
         </div>
       </div>
+
+      {cancelModalBooking && (
+        <CancelConfirmationModal
+          booking={cancelModalBooking}
+          onClose={() => setCancelModalBooking(null)}
+          onConfirm={async (reason) => {
+            await handleCancelBookingByMentor(cancelModalBooking, reason);
+          }}
+        />
+      )}
     </div>
   );
 }

@@ -17,11 +17,13 @@ import {
   X,
   Send,
   FileText,
+  XCircle,
 } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { generateScorecardPrintableWindow } from '../lib/scorecardPdf';
 import { useAuthStore } from '../lib/auth-store';
 import type { Booking } from '../types';
+import NativeVideoRoom from '../components/NativeVideoRoom';
 
 const TEAM_CONTACT_NUMBER = '7488455190';
 const TEAM_CONTACT_PHONE = '+917488455190';
@@ -49,6 +51,12 @@ export default function BookingRoom() {
   const [ticketSending, setTicketSending] = useState(false);
   const [ticketSent, setTicketSent] = useState(false);
   const [ticketError, setTicketError] = useState<string | null>(null);
+
+  // Cancel booking modal state
+  const [showCancelModal, setShowCancelModal] = useState(false);
+  const [cancelReason, setCancelReason] = useState('');
+  const [cancelSubmitting, setCancelSubmitting] = useState(false);
+  const [cancelError, setCancelError] = useState<string | null>(null);
 
   useEffect(() => {
     const fetchBooking = async () => {
@@ -157,6 +165,79 @@ export default function BookingRoom() {
     }
   };
 
+  const handleCancelBookingInRoom = async (e: FormEvent) => {
+    e.preventDefault();
+    if (!booking) return;
+
+    setCancelSubmitting(true);
+    setCancelError(null);
+
+    try {
+      const { error: updateError } = await supabase
+        .from('bookings')
+        .update({ status: 'cancelled' })
+        .eq('id', booking.id);
+
+      if (updateError) throw updateError;
+
+      if (booking.slot_id) {
+        await supabase.from('slots').update({ is_booked: false }).eq('id', booking.slot_id);
+      }
+
+      // Send cancellation email notification
+      try {
+        let studentEmail = booking.student?.email;
+        if (!studentEmail && booking.student_id) {
+          const { data: p } = await supabase.from('profiles').select('email').eq('id', booking.student_id).single();
+          if (p?.email) studentEmail = p.email;
+        }
+
+        if (studentEmail) {
+          const slotDate = booking.slot?.start_time ? new Date(booking.slot.start_time) : new Date();
+          const timeStr = slotDate.toLocaleString('en-IN', {
+            weekday: 'short',
+            month: 'short',
+            day: 'numeric',
+            year: 'numeric',
+            hour: '2-digit',
+            minute: '2-digit',
+            hour12: true,
+          });
+
+          const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
+          const SUPABASE_ANON_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY;
+
+          await fetch(`${SUPABASE_URL}/functions/v1/send-cancellation-email`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${SUPABASE_ANON_KEY}`,
+            },
+            body: JSON.stringify({
+              studentEmail: studentEmail.trim(),
+              studentName: booking.student?.full_name || 'Student',
+              mentorName: booking.mentor?.full_name || 'Interviewer',
+              sessionTime: timeStr,
+              topic: booking.slot?.topic ? booking.slot.topic : '1-on-1 Interview',
+              cancelledBy: profile?.role === 'mentor' ? 'mentor' : 'student',
+              reason: cancelReason.trim() || undefined,
+            }),
+          });
+        }
+      } catch (emailErr) {
+        console.error('Failed to send cancellation email:', emailErr);
+      }
+
+      setBooking((prev) => (prev ? { ...prev, status: 'cancelled' } : null));
+      setShowCancelModal(false);
+    } catch (err) {
+      console.error('Cancellation error:', err);
+      setCancelError(err instanceof Error ? err.message : 'Failed to cancel session');
+    } finally {
+      setCancelSubmitting(false);
+    }
+  };
+
   if (loading) {
     return (
       <div className="max-w-5xl mx-auto px-4 sm:px-6 py-12">
@@ -178,6 +259,46 @@ export default function BookingRoom() {
         <Link to="/dashboard" className="btn-primary inline-flex">
           Go to Dashboard
         </Link>
+      </div>
+    );
+  }
+
+  if (booking.status === 'cancelled') {
+    return (
+      <div className="max-w-2xl mx-auto px-4 sm:px-6 py-12">
+        <div className="card p-8 bg-rose-50/70 border border-rose-200 text-center shadow-lg rounded-2xl">
+          <div className="w-16 h-16 rounded-full bg-rose-100 border border-rose-300 text-rose-600 flex items-center justify-center mx-auto mb-4">
+            <XCircle size={36} />
+          </div>
+          <h1 className="text-2xl font-bold text-rose-950 mb-2">Session Cancelled</h1>
+          <p className="text-rose-800 text-sm max-w-md mx-auto mb-6 leading-relaxed">
+            This mock interview session has been cancelled. An email notification has been sent.
+          </p>
+
+          <div className="bg-white/90 border border-rose-200 rounded-xl p-4 text-left mb-6 space-y-2 text-xs text-slate-700">
+            <div className="flex justify-between border-b border-rose-100 pb-2">
+              <span className="text-slate-500 font-medium">Interviewer:</span>
+              <span className="font-semibold text-slate-900">{booking.mentor?.full_name ?? 'Mentor'}</span>
+            </div>
+            <div className="flex justify-between border-b border-rose-100 pb-2">
+              <span className="text-slate-500 font-medium">Student:</span>
+              <span className="font-semibold text-slate-900">{booking.student?.full_name ?? 'Student'}</span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-slate-500 font-medium">Status:</span>
+              <span className="font-bold text-rose-600 uppercase tracking-wider">Cancelled</span>
+            </div>
+          </div>
+
+          <div className="flex items-center justify-center gap-3 flex-wrap">
+            <Link to="/dashboard" className="btn-primary inline-flex items-center gap-1.5">
+              <ArrowLeft size={16} /> Return to Dashboard
+            </Link>
+            <Link to="/mentors" className="btn-secondary inline-flex items-center gap-1.5">
+              Find Interviewers
+            </Link>
+          </div>
+        </div>
       </div>
     );
   }
@@ -209,6 +330,20 @@ export default function BookingRoom() {
         </Link>
 
         <div className="flex items-center gap-2 flex-wrap">
+          {booking.status === 'confirmed' && (
+            <button
+              onClick={() => {
+                setCancelReason('');
+                setCancelError(null);
+                setShowCancelModal(true);
+              }}
+              className="bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 text-xs sm:text-sm font-semibold px-3 py-2 rounded-xl shadow-sm transition-all inline-flex items-center gap-1.5 shrink-0"
+              title="Cancel this mock interview session"
+            >
+              <XCircle size={14} /> Cancel Session
+            </button>
+          )}
+
           <button
             onClick={() => {
               setTicketCategory('general');
@@ -276,18 +411,15 @@ export default function BookingRoom() {
             </div>
           </div>
 
-          {/* Video Call Embed Container */}
-          <div
-            className="card overflow-hidden shadow-lg border border-slate-300 bg-slate-950 relative rounded-2xl"
-            style={{ height: 'calc(100vh - 220px)', minHeight: '520px' }}
-          >
-            <iframe
-              src={jitsiUrl}
-              allow="camera; microphone; fullscreen; display-capture; autoplay"
-              className="w-full h-full border-0"
-              title="Roundora Video Room"
-            />
-          </div>
+          {/* Native High-Performance WebRTC Video Call (Zero Ads, Zero Lag, Zero App Download) */}
+          <NativeVideoRoom
+            bookingId={booking.id}
+            roomName={booking.meeting_room}
+            userId={profile?.id ?? 'guest'}
+            userName={profile?.full_name ?? 'Participant'}
+            otherPersonName={otherPerson?.full_name ?? 'Participant'}
+            otherRole={otherRole}
+          />
 
           {/* Bottom Bar note & End Call quick link */}
           <div className="mt-4 flex items-center justify-between gap-4 flex-wrap text-xs text-slate-500">
@@ -646,6 +778,67 @@ export default function BookingRoom() {
                 </div>
               </form>
             )}
+          </div>
+        </div>
+      )}
+
+      {/* Cancellation Modal */}
+      {showCancelModal && (
+        <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4 animate-fadeIn">
+          <div className="bg-white rounded-3xl max-w-md w-full p-6 shadow-2xl relative border border-slate-100">
+            <button
+              onClick={() => setShowCancelModal(false)}
+              className="absolute top-4 right-4 p-2 text-slate-400 hover:text-slate-700 hover:bg-slate-100 rounded-full transition-colors"
+            >
+              <X size={20} />
+            </button>
+
+            <form onSubmit={handleCancelBookingInRoom} className="space-y-4">
+              <div className="flex items-center gap-2 text-rose-600 font-extrabold text-lg border-b border-slate-100 pb-3">
+                <AlertTriangle size={22} /> Cancel Interview Session
+              </div>
+
+              {cancelError && (
+                <div className="bg-rose-50 border border-rose-200 text-rose-700 text-xs p-3 rounded-xl">
+                  {cancelError}
+                </div>
+              )}
+
+              <p className="text-slate-600 text-xs leading-relaxed">
+                Are you sure you want to cancel this mock interview session with{' '}
+                <strong>{otherPerson?.full_name ?? 'Participant'}</strong>? An automated cancellation notification email will be sent to the participant.
+              </p>
+
+              <div>
+                <label className="block text-xs font-bold text-slate-700 mb-1">
+                  Reason for Cancellation (Optional)
+                </label>
+                <textarea
+                  rows={3}
+                  value={cancelReason}
+                  onChange={(e) => setCancelReason(e.target.value)}
+                  placeholder="e.g., Unavoidable personal emergency, scheduling conflict..."
+                  className="w-full p-3 rounded-xl border border-slate-200 text-xs focus:outline-none focus:ring-2 focus:ring-rose-500/20 bg-slate-50"
+                />
+              </div>
+
+              <div className="pt-2 flex items-center justify-end gap-2">
+                <button
+                  type="button"
+                  onClick={() => setShowCancelModal(false)}
+                  className="btn-secondary !px-4 !py-2 text-xs"
+                >
+                  Keep Session
+                </button>
+                <button
+                  type="submit"
+                  disabled={cancelSubmitting}
+                  className="bg-rose-600 hover:bg-rose-700 text-white font-bold text-xs px-5 py-2 rounded-xl shadow-md transition-all inline-flex items-center gap-1.5 disabled:opacity-50"
+                >
+                  <XCircle size={14} /> {cancelSubmitting ? 'Cancelling...' : 'Confirm Cancellation'}
+                </button>
+              </div>
+            </form>
           </div>
         </div>
       )}
