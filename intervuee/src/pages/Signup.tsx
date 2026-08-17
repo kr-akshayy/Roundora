@@ -117,14 +117,21 @@ export default function Signup() {
     }
 
     if (verifyData?.user) {
+      // For mentors: keep role as 'student' until application is approved
+      // is_verified will be set to true by admin after reviewing the application
       await supabase.from('profiles').upsert({
         id: verifyData.user.id,
         full_name: fullName,
-        role,
+        role: role === 'mentor' ? 'student' : role,
       });
     }
 
-    navigate('/dashboard');
+    // Mentors go to the application form; students go to dashboard
+    if (role === 'mentor') {
+      navigate('/apply');
+    } else {
+      navigate('/dashboard');
+    }
   };
 
   const handleResendConfirmation = async () => {

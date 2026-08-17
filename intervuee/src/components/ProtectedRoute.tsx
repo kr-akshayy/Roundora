@@ -6,14 +6,32 @@ export default function ProtectedRoute({ children }: { children: React.ReactNode
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center min-h-[60vh] text-slate-500 text-sm">
-        Loading...
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="w-8 h-8 rounded-full border-2 border-brand-600 border-t-transparent animate-spin" />
       </div>
     );
   }
 
   if (!session) {
     return <Navigate to="/login" replace />;
+  }
+
+  return <>{children}</>;
+}
+
+export function AdminRoute({ children }: { children: React.ReactNode }) {
+  const { session, profile, loading } = useAuthStore();
+
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="w-8 h-8 rounded-full border-2 border-brand-600 border-t-transparent animate-spin" />
+      </div>
+    );
+  }
+
+  if (!session || !profile?.is_admin) {
+    return <Navigate to="/" replace />;
   }
 
   return <>{children}</>;

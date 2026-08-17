@@ -1,11 +1,10 @@
 import { useEffect, useState, FormEvent } from 'react';
 import { Link } from 'react-router-dom';
-import { Video, Calendar, Plus, Clock, CheckCircle2, MessageSquarePlus, Trash2, X, Copy, ExternalLink, Bell, CalendarPlus, FileText, AlertTriangle, XCircle } from 'lucide-react';
+import { Video, Calendar, Plus, Clock, CheckCircle2, MessageSquarePlus, Trash2, X, Copy, ExternalLink, Bell, CalendarPlus, FileText, AlertTriangle, XCircle, ClipboardList } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { useAuthStore } from '../lib/auth-store';
 import StarRating from '../components/StarRating';
 import { TOPICS, topicLabel, topicColor } from '../lib/topics';
-import { generateScorecardPrintableWindow } from '../lib/scorecardPdf';
 import type { Booking, Slot } from '../types';
 
 function ReviewForm({ booking, onDone }: { booking: Booking; onDone: () => void }) {
@@ -377,22 +376,13 @@ function StudentDashboard({ userId }: { userId: string }) {
               )}
               {b.status === 'completed' && (
                 <>
-                  <button
-                    onClick={() => generateScorecardPrintableWindow({
-                      studentName: b.student?.full_name ?? 'Student',
-                      mentorName: b.mentor?.full_name ?? 'Interviewer',
-                      mentorCompany: b.mentor?.company,
-                      rating: 5,
-                      comment: 'Strong performance during live mock interview. Keep practicing System Design trade-offs.',
-                      topic: b.slot?.topic ? topicLabel(b.slot.topic) : 'Mock Interview',
-                      dateStr: new Date(b.created_at).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' }),
-                      bookingId: b.id,
-                    })}
+                  <Link
+                    to={`/scorecard/${b.id}`}
                     className="flex items-center gap-1 text-xs px-3 py-2 rounded-xl border border-indigo-200 text-indigo-700 bg-indigo-50 hover:bg-indigo-100 transition-colors font-semibold"
-                    title="Download / Print Official Interview Scorecard PDF"
+                    title="View your official interview scorecard"
                   >
-                    <FileText size={13} /> Scorecard PDF
-                  </button>
+                    <FileText size={13} /> Scorecard
+                  </Link>
                   {!reviewedBookingIds.has(b.id) && reviewingId !== b.id && (
                     <button
                       onClick={() => setReviewingId(b.id)}
@@ -832,7 +822,21 @@ function MentorDashboard({ userId, mentorProfileId, expertise }: { userId: strin
                         </>
                       )}
                       {b.status === 'completed' && (
-                        <span className="badge-brand">Completed</span>
+                        <>
+                          <Link
+                            to={`/scorecard/${b.id}/submit`}
+                            className="flex items-center gap-1.5 text-xs px-3 py-2 rounded-xl border border-brand-200 text-brand-700 bg-brand-50 hover:bg-brand-100 transition-colors font-semibold"
+                            title="Submit interview scorecard for this candidate"
+                          >
+                            <ClipboardList size={13} /> Submit Scorecard
+                          </Link>
+                          <Link
+                            to={`/scorecard/${b.id}`}
+                            className="flex items-center gap-1.5 text-xs px-3 py-2 rounded-xl border border-slate-200 text-slate-600 bg-slate-50 hover:bg-slate-100 transition-colors"
+                          >
+                            <FileText size={13} /> View
+                          </Link>
+                        </>
                       )}
                       {b.status === 'cancelled' && (
                         <span className="text-xs px-2.5 py-1 rounded-full border text-rose-600 bg-rose-50 border-rose-200">Cancelled</span>

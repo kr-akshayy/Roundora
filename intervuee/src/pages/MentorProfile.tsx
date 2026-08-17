@@ -2,7 +2,7 @@ import { useEffect, useState, FormEvent } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import {
   Briefcase, IndianRupee, Calendar, CheckCircle2, AlertCircle,
-  Clock, ArrowLeft, Star, Zap, Users
+  Clock, ArrowLeft, Star, Zap, Users, ShieldCheck, Linkedin
 } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { useAuthStore } from '../lib/auth-store';
@@ -137,6 +137,7 @@ export default function MentorProfile() {
   const [mentor, setMentor] = useState<Profile | null>(null);
   const [slots, setSlots] = useState<Slot[]>([]);
   const [reviews, setReviews] = useState<Review[]>([]);
+  const [interviewCount, setInterviewCount] = useState(0);
   const [loading, setLoading] = useState(true);
   const [booking, setBooking] = useState<string | null>(null);
   const [checkoutSlot, setCheckoutSlot] = useState<Slot | null>(null);
@@ -149,7 +150,7 @@ export default function MentorProfile() {
 
   useEffect(() => {
     const fetchData = async () => {
-      const [{ data: mentorData }, { data: slotData }, { data: reviewData }] = await Promise.all([
+      const [{ data: mentorData }, { data: slotData }, { data: reviewData }, { count: bookingCount }] = await Promise.all([
         supabase.from('profiles').select('*').eq('id', id).single(),
         supabase
           .from('slots')
@@ -163,10 +164,16 @@ export default function MentorProfile() {
           .select('*, student:student_id(*)')
           .eq('mentor_id', id)
           .order('created_at', { ascending: false }),
+        supabase
+          .from('bookings')
+          .select('id', { count: 'exact', head: true })
+          .eq('mentor_id', id)
+          .eq('status', 'completed'),
       ]);
       setMentor(mentorData as Profile);
       setSlots((slotData as Slot[]) ?? []);
       setReviews((reviewData as unknown as Review[]) ?? []);
+      setInterviewCount(bookingCount ?? 0);
       setLoading(false);
     };
     if (id) fetchData();
@@ -445,17 +452,32 @@ export default function MentorProfile() {
           <div style={{ display: 'flex', alignItems: 'flex-start', gap: '16px', marginBottom: '16px', flexWrap: 'wrap' }}>
             <Avatar url={mentor.avatar_url} name={mentor.full_name} size={72} />
             <div style={{ flex: 1 }}>
-              <h1 style={{ fontSize: '22px', fontWeight: '800', color: '#0f172a', margin: '0 0 4px' }}>
-                {mentor.full_name}
-              </h1>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap', marginBottom: '4px' }}>
+                <h1 style={{ fontSize: '22px', fontWeight: '800', color: '#0f172a', margin: 0 }}>
+                  {mentor.full_name}
+                </h1>
+                {mentor.is_verified && (
+                  <span style={{
+                    display: 'inline-flex', alignItems: 'center', gap: '4px',
+                    fontSize: '11px', fontWeight: '700', color: '#059669',
+                    backgroundColor: '#d1fae5', border: '1px solid #a7f3d0',
+                    padding: '3px 10px', borderRadius: '20px',
+                  }}>
+                    <ShieldCheck size={11} /> Roundora Verified
+                  </span>
+                )}
+              </div>
               <div style={{ fontSize: '14px', color: '#64748b', marginBottom: '8px' }}>
                 {mentor.headline ?? 'Interviewer'}
               </div>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px', flexWrap: 'wrap' }}>
                 <StarRating rating={avgRating ?? 5.0} size={16} />
                 <span style={{ fontSize: '13px', color: '#475569', fontWeight: '700' }}>
-                  {avgRating !== null ? `${avgRating.toFixed(1)} (${reviews.length} review${reviews.length !== 1 ? 's' : ''})` : '5.0 ★ (New Interviewer)'}
+                  {avgRating !== null ? `${avgRating.toFixed(1)} (${reviews.length} review${reviews.length !== 1 ? 's' : ''})` : '5.0 ★ (New)'}
                 </span>
+                {interviewCount > 0 && (
+                  <span style={{ fontSize: '12px', color: '#64748b' }}>· {interviewCount} interviews</span>
+                )}
               </div>
               <div style={{ display: 'flex', alignItems: 'center', gap: '16px', flexWrap: 'wrap' }}>
                 {mentor.company && (
@@ -467,6 +489,16 @@ export default function MentorProfile() {
                   <span style={{ fontSize: '13px', color: '#64748b', display: 'flex', alignItems: 'center', gap: '5px' }}>
                     <Users size={13} /> {mentor.years_experience} yrs exp
                   </span>
+                )}
+                {mentor.linkedin_url && (
+                  <a
+                    href={mentor.linkedin_url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    style={{ fontSize: '13px', color: '#0a66c2', display: 'flex', alignItems: 'center', gap: '5px', textDecoration: 'none' }}
+                  >
+                    <Linkedin size={13} /> LinkedIn
+                  </a>
                 )}
               </div>
             </div>

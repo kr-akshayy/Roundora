@@ -2,7 +2,7 @@ import { useEffect } from 'react';
 import { Routes, Route, useLocation } from 'react-router-dom';
 import PwaInstallBanner from './components/PwaInstallBanner';
 import Navbar from './components/Navbar';
-import ProtectedRoute from './components/ProtectedRoute';
+import ProtectedRoute, { AdminRoute } from './components/ProtectedRoute';
 import Landing from './pages/Landing';
 import Login from './pages/Login';
 import Signup from './pages/Signup';
@@ -15,6 +15,10 @@ import BookingRoom from './pages/BookingRoom';
 import EditProfile from './pages/EditProfile';
 import JobsPage from './pages/JobsPage';
 import NotFound from './pages/NotFound';
+import InterviewerApplication from './pages/InterviewerApplication';
+import AdminDashboard from './pages/AdminDashboard';
+import SubmitScorecard from './pages/SubmitScorecard';
+import ViewScorecard from './pages/ViewScorecard';
 import { useAuthStore } from './lib/auth-store';
 
 // Pages where the Navbar should be hidden (they have their own header)
@@ -36,6 +40,7 @@ export default function App() {
       {showNavbar && <Navbar />}
       <main className="flex-1">
         <Routes>
+          {/* Public */}
           <Route path="/" element={<Landing />} />
           <Route path="/jobs" element={<JobsPage />} />
           <Route path="/login" element={<Login />} />
@@ -44,6 +49,10 @@ export default function App() {
           <Route path="/reset-password" element={<ResetPassword />} />
           <Route path="/mentors" element={<Mentors />} />
           <Route path="/mentors/:id" element={<MentorProfile />} />
+          {/* SEO category pages — same component with filter param */}
+          <Route path="/mock-interview/:topic" element={<Mentors />} />
+
+          {/* Authenticated */}
           <Route
             path="/dashboard"
             element={
@@ -68,6 +77,41 @@ export default function App() {
               </ProtectedRoute>
             }
           />
+          <Route
+            path="/apply"
+            element={
+              <ProtectedRoute>
+                <InterviewerApplication />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/scorecard/:bookingId"
+            element={
+              <ProtectedRoute>
+                <ViewScorecard />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/scorecard/:bookingId/submit"
+            element={
+              <ProtectedRoute>
+                <SubmitScorecard />
+              </ProtectedRoute>
+            }
+          />
+
+          {/* Admin only */}
+          <Route
+            path="/admin"
+            element={
+              <AdminRoute>
+                <AdminDashboard />
+              </AdminRoute>
+            }
+          />
+
           {/* 404 catch-all */}
           <Route path="*" element={<NotFound />} />
         </Routes>

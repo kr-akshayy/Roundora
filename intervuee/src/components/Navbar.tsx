@@ -1,5 +1,5 @@
 import { Link, useNavigate } from 'react-router-dom';
-import { LayoutDashboard, LogOut } from 'lucide-react';
+import { LayoutDashboard, LogOut, ShieldCheck, Star } from 'lucide-react';
 import { useAuthStore } from '../lib/auth-store';
 import Avatar from './Avatar';
 
@@ -38,6 +38,24 @@ export default function Navbar() {
 
           {session ? (
             <>
+              {profile?.is_admin && (
+                <Link
+                  to="/admin"
+                  className="flex items-center gap-1 text-xs text-rose-600 hover:text-rose-700 hover:bg-rose-50 transition-colors px-2 sm:px-3 py-1.5 sm:py-2 rounded-lg font-bold"
+                >
+                  <ShieldCheck size={13} className="shrink-0" />
+                  <span className="hidden sm:inline">Admin</span>
+                </Link>
+              )}
+              {profile?.role === 'student' && !profile?.is_admin && (
+                <Link
+                  to="/apply"
+                  className="hidden sm:flex items-center gap-1 text-xs text-amber-700 hover:text-amber-800 hover:bg-amber-50 transition-colors px-2 sm:px-3 py-1.5 sm:py-2 rounded-lg font-bold"
+                >
+                  <Star size={12} className="shrink-0" fill="currentColor" />
+                  Become Interviewer
+                </Link>
+              )}
               <Link
                 to="/dashboard"
                 className="flex items-center gap-1 text-slate-600 hover:text-slate-900 hover:bg-slate-100 transition-colors px-2 sm:px-3 py-1.5 sm:py-2 rounded-lg font-medium"
