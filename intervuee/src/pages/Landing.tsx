@@ -1,7 +1,6 @@
 import { Link } from 'react-router-dom';
 import { ArrowRight, Users2, Sparkles, Video, ShieldCheck } from 'lucide-react';
 import LiveInterviewSimulation from '../components/LiveInterviewSimulation';
-import LiveJobsWidget from '../components/LiveJobsWidget';
 
 const rounds = [
   { n: '01', label: 'Screening', desc: 'Resume walkthrough & background fit', color: 'text-cyan-600' },
@@ -88,7 +87,7 @@ export default function Landing() {
           </div>
           <div className="font-semibold mb-1.5 text-slate-900">Verified interviewers only</div>
           <p className="text-sm text-slate-500">
-            Every mentor's work history is manually checked before they can take bookings.
+            Every interviewer's work history is manually checked before they can take bookings.
           </p>
         </div>
         <div>
@@ -109,32 +108,6 @@ export default function Landing() {
             Get a structured scorecard after every session, not just a verbal "you did fine."
           </p>
         </div>
-      </section>
-
-      {/* Real-Time Tech Jobs & Hiring Portal Section */}
-      <section className="max-w-6xl mx-auto px-6 py-16 border-t border-slate-200">
-        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-8">
-          <div>
-            <div className="inline-flex items-center gap-1.5 text-xs font-bold text-rose-600 bg-rose-50 border border-rose-200 px-3 py-1 rounded-full uppercase tracking-wider mb-2">
-              <Sparkles size={13} className="animate-spin" style={{ animationDuration: '4s' }} /> Verified Hiring Alerts
-            </div>
-            <h2 className="text-2xl sm:text-3xl font-extrabold text-slate-900 tracking-tight">
-              Active Tech Openings & Job Vacancies 💼
-            </h2>
-            <p className="text-slate-500 text-sm mt-1">
-              Fetched from Naukri, LinkedIn, Indeed & Official Career Portals. Apply directly & prepare 1-on-1!
-            </p>
-          </div>
-
-          <Link
-            to="/jobs"
-            className="btn-secondary text-xs font-bold px-4 py-2.5 rounded-xl border border-slate-300"
-          >
-            View All Openings <ArrowRight size={14} />
-          </Link>
-        </div>
-
-        <LiveJobsWidget limit={4} />
       </section>
 
       <section className="max-w-6xl mx-auto px-6 py-16 border-t border-slate-200 text-center">

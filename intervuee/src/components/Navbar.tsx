@@ -28,7 +28,7 @@ export default function Navbar() {
 
         <div className="flex items-center gap-1 sm:gap-1.5 text-xs sm:text-sm">
           <Link to="/mentors" className="text-slate-600 hover:text-slate-900 hover:bg-slate-100 transition-colors px-2 sm:px-3 py-1.5 sm:py-2 rounded-lg font-medium">
-            Mentors
+            Interviewers
           </Link>
 
           <Link to="/jobs" className="text-slate-600 hover:text-slate-900 hover:bg-slate-100 transition-colors px-2 sm:px-3 py-1.5 sm:py-2 rounded-lg font-medium flex items-center gap-1">

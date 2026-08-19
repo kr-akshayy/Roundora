@@ -198,6 +198,22 @@ export default function MentorProfile() {
     setError(null);
     setBooking(checkoutSlot.id);
 
+    // Race condition guard: re-check slot availability right before booking
+    const { data: freshSlot } = await supabase
+      .from('slots')
+      .select('is_booked')
+      .eq('id', checkoutSlot.id)
+      .single();
+
+    if (!freshSlot || freshSlot.is_booked) {
+      setError('Sorry, this slot was just booked by someone else. Please choose another time.');
+      setBooking(null);
+      // Remove the taken slot from local list so UI updates immediately
+      setSlots((prev) => prev.filter((s) => s.id !== checkoutSlot.id));
+      setCheckoutSlot(null);
+      return;
+    }
+
     const roomName = `roundora-${checkoutSlot.id}-${Date.now().toString(36)}`;
 
     const { error: bookingError } = await supabase.from('bookings').insert({
@@ -209,10 +225,20 @@ export default function MentorProfile() {
     });
 
     if (bookingError) {
-      setError(bookingError.message);
+      // Handle unique constraint violation (slot claimed between our check and insert)
+      if (bookingError.code === '23505' || bookingError.message?.includes('unique')) {
+        setError('Sorry, this slot was just booked by someone else. Please choose another time.');
+        setSlots((prev) => prev.filter((s) => s.id !== checkoutSlot.id));
+        setCheckoutSlot(null);
+      } else {
+        setError(bookingError.message);
+      }
       setBooking(null);
       return;
     }
+
+    // Optimistically remove from local slots list to prevent double-booking UI
+    setSlots((prev) => prev.filter((s) => s.id !== checkoutSlot.id));
 
     await supabase.from('slots').update({ is_booked: true }).eq('id', checkoutSlot.id);
 
@@ -260,8 +286,8 @@ export default function MentorProfile() {
     return (
       <div style={{ textAlign: 'center', padding: '80px 24px' }}>
         <div style={{ fontSize: '48px', marginBottom: '16px' }}>🔍</div>
-        <h1 style={{ fontSize: '20px', fontWeight: '700', color: '#0f172a' }}>Mentor not found</h1>
-        <Link to="/mentors" style={{ color: '#4f46e5', textDecoration: 'none', marginTop: '12px', display: 'inline-block' }}>← Browse mentors</Link>
+        <h1 style={{ fontSize: '20px', fontWeight: '700', color: '#0f172a' }}>Interviewer not found</h1>
+        <Link to="/mentors" style={{ color: '#4f46e5', textDecoration: 'none', marginTop: '12px', display: 'inline-block' }}>← Browse interviewers</Link>
       </div>
     );
   }

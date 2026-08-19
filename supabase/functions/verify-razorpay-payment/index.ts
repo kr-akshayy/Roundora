@@ -5,12 +5,14 @@
  * On success, marks the booking as confirmed and payment as paid.
  * On failure, logs the attempt but takes no action.
  *
+ * SECURITY: amount_paid is fetched from the DB (via the booking's mentor profile),
+ * not from the client, to prevent tampering.
+ *
  * Request body: {
  *   razorpay_order_id: string,
  *   razorpay_payment_id: string,
  *   razorpay_signature: string,
  *   booking_id: string,
- *   amount: number,
  * }
  * Response: { success: true } | { error: string }
  */
@@ -41,7 +43,7 @@ serve(async (req) => {
       );
     }
 
-    const { razorpay_order_id, razorpay_payment_id, razorpay_signature, booking_id, amount } = await req.json();
+    const { razorpay_order_id, razorpay_payment_id, razorpay_signature, booking_id } = await req.json();
 
     // Verify HMAC-SHA256 signature
     const body = `${razorpay_order_id}|${razorpay_payment_id}`;
@@ -66,13 +68,31 @@ serve(async (req) => {
       );
     }
 
-    // Signature is valid — confirm the booking
+    // Signature is valid — fetch authoritative amount from DB, then confirm the booking
     const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_KEY);
+
+    // Get the booking to find mentor and derive amount_paid
+    const { data: bookingRow } = await supabase
+      .from('bookings')
+      .select('mentor_id')
+      .eq('id', booking_id)
+      .single();
+
+    let amountPaid: number | null = null;
+    if (bookingRow?.mentor_id) {
+      const { data: mentorProfile } = await supabase
+        .from('profiles')
+        .select('price_per_session')
+        .eq('id', bookingRow.mentor_id)
+        .single();
+      amountPaid = mentorProfile?.price_per_session ?? null;
+    }
+
     const { error } = await supabase.from('bookings').update({
       status: 'confirmed',
       payment_status: 'paid',
       razorpay_payment_id,
-      amount_paid: amount,
+      amount_paid: amountPaid,
     }).eq('id', booking_id).eq('razorpay_order_id', razorpay_order_id);
 
     if (error) {
