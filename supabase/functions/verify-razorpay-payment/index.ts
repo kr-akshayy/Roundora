@@ -18,8 +18,13 @@
  */
 import { serve } from 'https://deno.land/std@0.177.0/http/server.ts';
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
-import { crypto } from 'https://deno.land/std@0.177.0/crypto/mod.ts';
-import { encode } from 'https://deno.land/std@0.177.0/encoding/hex.ts';
+
+/** Convert an ArrayBuffer to a lowercase hex string (replaces std encode) */
+function toHex(buffer: ArrayBuffer): string {
+  return Array.from(new Uint8Array(buffer))
+    .map((b) => b.toString(16).padStart(2, '0'))
+    .join('');
+}
 
 const RAZORPAY_KEY_SECRET = Deno.env.get('RAZORPAY_KEY_SECRET') ?? '';
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL') ?? '';
@@ -58,7 +63,7 @@ serve(async (req) => {
       ['sign']
     );
     const signature = await crypto.subtle.sign('HMAC', cryptoKey, msgBytes);
-    const computedSig = new TextDecoder().decode(encode(new Uint8Array(signature)));
+    const computedSig = toHex(signature);
 
     if (computedSig !== razorpay_signature) {
       console.error(`Signature mismatch for booking ${booking_id}. Expected: ${computedSig}, Got: ${razorpay_signature}`);
