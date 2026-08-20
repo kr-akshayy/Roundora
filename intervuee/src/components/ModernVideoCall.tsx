@@ -14,6 +14,9 @@ import {
   RefreshCw,
   Clock,
   Sparkles,
+  Volume2,
+  VolumeX,
+  Scan,
 } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { getIceServers } from '../lib/webrtcConfig';
@@ -45,6 +48,8 @@ export default function ModernVideoCall({
   const [isMicOn, setIsMicOn] = useState(true);
   const [isVideoOn, setIsVideoOn] = useState(true);
   const [isScreenSharing, setIsScreenSharing] = useState(false);
+  const [isSpeakerOn, setIsSpeakerOn] = useState(true);
+  const [videoFitMode, setVideoFitMode] = useState<'contain' | 'cover'>('contain');
   const [peerConnected, setPeerConnected] = useState(false);
   const [connectionState, setConnectionState] = useState<'connecting' | 'connected' | 'reconnecting' | 'disconnected'>('connecting');
   const [isFullscreen, setIsFullscreen] = useState(false);
@@ -54,6 +59,7 @@ export default function ModernVideoCall({
 
   const localVideoRef = useRef<HTMLVideoElement | null>(null);
   const remoteVideoRef = useRef<HTMLVideoElement | null>(null);
+  const remoteAudioRef = useRef<HTMLAudioElement | null>(null);
   const containerRef = useRef<HTMLDivElement | null>(null);
   const peerConnectionRef = useRef<RTCPeerConnection | null>(null);
   const channelRef = useRef<any>(null);
@@ -65,7 +71,7 @@ export default function ModernVideoCall({
     return `${String(mins).padStart(2, '0')}:${String(remainingSecs).padStart(2, '0')}`;
   };
 
-  // Initialize WebRTC Call & Signaling
+  // Initialize WebRTC Call & High-Quality Audio/Video Media
   useEffect(() => {
     let isMounted = true;
     let pc: RTCPeerConnection | null = null;
@@ -76,10 +82,18 @@ export default function ModernVideoCall({
         setMediaError(null);
         setConnectionState('connecting');
 
-        // 1. Capture Local Audio & Video
+        // 1. Capture Local Audio & Video with Crystal-Clear Noise/Echo Cancellation
         const stream = await navigator.mediaDevices.getUserMedia({
-          video: { width: { ideal: 1280 }, height: { ideal: 720 } },
-          audio: true,
+          video: {
+            width: { ideal: 1280 },
+            height: { ideal: 720 },
+            frameRate: { ideal: 30 },
+          },
+          audio: {
+            echoCancellation: true,
+            noiseSuppression: true,
+            autoGainControl: true,
+          },
         });
 
         if (!isMounted) {
@@ -103,13 +117,28 @@ export default function ModernVideoCall({
           if (pc) pc.addTrack(track, stream);
         });
 
-        // 3. Receive Remote Media Tracks
+        // 3. Receive Remote Media Tracks (Video & Dedicated Audio Output)
         pc.ontrack = (event) => {
           if (event.streams && event.streams[0]) {
-            setRemoteStream(event.streams[0]);
+            const stream = event.streams[0];
+            setRemoteStream(stream);
+
+            // Attach to remote video element
             if (remoteVideoRef.current) {
-              remoteVideoRef.current.srcObject = event.streams[0];
+              remoteVideoRef.current.srcObject = stream;
+              remoteVideoRef.current.muted = false;
+              remoteVideoRef.current.volume = 1.0;
+              remoteVideoRef.current.play().catch((e) => console.warn('Remote video auto-play:', e));
             }
+
+            // Also attach to dedicated audio element to guarantee loud, clear sound
+            if (remoteAudioRef.current) {
+              remoteAudioRef.current.srcObject = stream;
+              remoteAudioRef.current.muted = false;
+              remoteAudioRef.current.volume = 1.0;
+              remoteAudioRef.current.play().catch((e) => console.warn('Remote audio auto-play:', e));
+            }
+
             setPeerConnected(true);
             setConnectionState('connected');
           }
@@ -155,7 +184,10 @@ export default function ModernVideoCall({
             if (payload.senderId === userId || !pc) return;
             try {
               await pc.setRemoteDescription(new RTCSessionDescription(payload.offer));
-              const answer = await pc.createAnswer();
+              const answer = await pc.createAnswer({
+                offerToReceiveAudio: true,
+                offerToReceiveVideo: true,
+              });
               await pc.setLocalDescription(answer);
               channel.send({
                 type: 'broadcast',
@@ -190,7 +222,10 @@ export default function ModernVideoCall({
             if (payload.senderId === userId || !pc) return;
             // Initiate offer when new peer announces ready
             try {
-              const offer = await pc.createOffer();
+              const offer = await pc.createOffer({
+                offerToReceiveAudio: true,
+                offerToReceiveVideo: true,
+              });
               await pc.setLocalDescription(offer);
               channel.send({
                 type: 'broadcast',
@@ -203,7 +238,6 @@ export default function ModernVideoCall({
           })
           .subscribe((status: string) => {
             if (status === 'SUBSCRIBED') {
-              // Announce presence to trigger offer/answer
               channel.send({
                 type: 'broadcast',
                 event: 'peer-ready',
@@ -256,6 +290,18 @@ export default function ModernVideoCall({
         t.enabled = !isVideoOn;
       });
       setIsVideoOn(!isVideoOn);
+    }
+  };
+
+  // Toggle Speaker (Mute/Unmute Incoming Sound)
+  const toggleSpeaker = () => {
+    const nextSpeakerState = !isSpeakerOn;
+    setIsSpeakerOn(nextSpeakerState);
+    if (remoteAudioRef.current) {
+      remoteAudioRef.current.muted = !nextSpeakerState;
+    }
+    if (remoteVideoRef.current) {
+      remoteVideoRef.current.muted = !nextSpeakerState;
     }
   };
 
@@ -325,6 +371,9 @@ export default function ModernVideoCall({
 
   return (
     <div className="space-y-3 animate-fadeIn">
+      {/* Hidden Dedicated Audio Player for Pure Clear Sound Output */}
+      <audio ref={remoteAudioRef} autoPlay playsInline />
+
       {/* Top Session Bar */}
       <div className="card p-3.5 flex items-center justify-between gap-3 flex-wrap bg-gradient-to-r from-slate-900 via-indigo-950 to-slate-900 text-white border-0 shadow-lg">
         <div className="flex items-center gap-3">
@@ -401,12 +450,14 @@ export default function ModernVideoCall({
             </div>
           )}
 
-          {/* Remote Video Stream */}
+          {/* Remote Video Stream — Natural unzoomed aspect ratio ('contain') */}
           <video
             ref={remoteVideoRef}
             autoPlay
             playsInline
-            className={`w-full h-full object-cover transition-all ${
+            className={`w-full h-full ${
+              videoFitMode === 'contain' ? 'object-contain' : 'object-cover'
+            } transition-all bg-slate-950 ${
               peerConnected ? 'opacity-100' : 'opacity-0 absolute'
             }`}
           />
@@ -425,10 +476,10 @@ export default function ModernVideoCall({
 
               <div>
                 <h3 className="text-lg font-bold text-white mb-1">
-                  Connected to Call Room
+                  Connected to Interview Room
                 </h3>
                 <p className="text-xs text-slate-400 max-w-md">
-                  Waiting for {otherPersonName} ({otherRole}) video stream to arrive...
+                  Waiting for {otherPersonName} ({otherRole}) audio & video stream to connect...
                 </p>
               </div>
 
@@ -460,7 +511,7 @@ export default function ModernVideoCall({
           </div>
 
           {/* Bottom Floating Control Dock */}
-          <div className="absolute bottom-6 left-1/2 -translate-x-1/2 flex items-center gap-3 bg-slate-900/85 backdrop-blur-lg p-2.5 rounded-2xl border border-white/10 shadow-2xl z-20">
+          <div className="absolute bottom-6 left-1/2 -translate-x-1/2 flex items-center gap-2 sm:gap-3 bg-slate-900/85 backdrop-blur-lg p-2.5 rounded-2xl border border-white/10 shadow-2xl z-20">
             {/* Mic Toggle */}
             <button
               onClick={toggleMic}
@@ -485,6 +536,32 @@ export default function ModernVideoCall({
               title={isVideoOn ? 'Turn Camera Off' : 'Turn Camera On'}
             >
               {isVideoOn ? <Video size={20} /> : <VideoOff size={20} />}
+            </button>
+
+            {/* Speaker Sound Toggle */}
+            <button
+              onClick={toggleSpeaker}
+              className={`p-3 rounded-xl transition-all ${
+                isSpeakerOn
+                  ? 'bg-slate-800 text-white hover:bg-slate-700'
+                  : 'bg-rose-600 text-white hover:bg-rose-700'
+              }`}
+              title={isSpeakerOn ? 'Mute Incoming Sound' : 'Unmute Incoming Sound'}
+            >
+              {isSpeakerOn ? <Volume2 size={20} /> : <VolumeX size={20} />}
+            </button>
+
+            {/* Video Zoom / Aspect Ratio Toggle (Contain vs Cover) */}
+            <button
+              onClick={() => setVideoFitMode((m) => (m === 'contain' ? 'cover' : 'contain'))}
+              className={`p-3 rounded-xl transition-all ${
+                videoFitMode === 'contain'
+                  ? 'bg-slate-800 text-white hover:bg-slate-700'
+                  : 'bg-indigo-600 text-white'
+              }`}
+              title={videoFitMode === 'contain' ? 'Switch to Full Screen Fill' : 'Switch to Natural Unzoomed Fit'}
+            >
+              <Scan size={20} />
             </button>
 
             {/* Screen Sharing Toggle */}
