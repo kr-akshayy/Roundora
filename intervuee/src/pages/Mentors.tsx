@@ -44,7 +44,7 @@ export default function Mentors() {
           .select('*')
           .eq('role', 'mentor')
           .eq('is_verified', true)
-          .eq('is_suspended', false),
+          .or('is_suspended.is.null,is_suspended.eq.false'),
         supabase.from('reviews').select('mentor_id, rating'),
         supabase
           .from('bookings')

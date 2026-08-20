@@ -183,7 +183,7 @@ export default function SubmitScorecard() {
 
   useEffect(() => {
     const fetch = async () => {
-      if (!bookingId) return;
+      if (!bookingId || !profile) return;
       const [{ data: bookingData }, { data: existingCard }] = await Promise.all([
         supabase
           .from('bookings')
@@ -198,7 +198,7 @@ export default function SubmitScorecard() {
       setLoading(false);
     };
     fetch();
-  }, [bookingId]);
+  }, [bookingId, profile]);
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();

@@ -69,44 +69,55 @@ export default function ViewScorecard() {
 
   useEffect(() => {
     const fetch = async () => {
-      if (!bookingId || !profile) return;
-
-      const [{ data: bookingData }, { data: scorecardData }] = await Promise.all([
-        supabase
-          .from('bookings')
-          .select('*, mentor:mentor_id(*), student:student_id(*), slot:slot_id(*)')
-          .eq('id', bookingId)
-          .single(),
-        supabase
-          .from('interview_scorecards')
-          .select('*, interviewer:interviewer_id(*), candidate:candidate_id(*)')
-          .eq('booking_id', bookingId)
-          .single(),
-      ]);
-
-      if (!bookingData) {
-        setNotFound(true);
-        setLoading(false);
+      // Wait until both bookingId and profile are available
+      if (!bookingId || !profile) {
+        // Don't set loading=false here — keep showing spinner until profile loads
         return;
       }
 
-      const b = bookingData as unknown as Booking;
-      setBooking(b);
+      setLoading(true);
 
-      // Access control: only candidate or interviewer
-      if (profile.id !== b.student_id && profile.id !== b.mentor_id && !profile.is_admin) {
-        setAccessDenied(true);
-        setLoading(false);
-        return;
-      }
+      try {
+        const [{ data: bookingData }, { data: scorecardData }] = await Promise.all([
+          supabase
+            .from('bookings')
+            .select('*, mentor:mentor_id(*), student:student_id(*), slot:slot_id(*)')
+            .eq('id', bookingId)
+            .single(),
+          supabase
+            .from('interview_scorecards')
+            .select('*, interviewer:interviewer_id(*), candidate:candidate_id(*)')
+            .eq('booking_id', bookingId)
+            .single(),
+        ]);
 
-      if (scorecardData) {
-        setScorecard(scorecardData as unknown as InterviewScorecard);
-      } else {
+        if (!bookingData) {
+          setNotFound(true);
+          setLoading(false);
+          return;
+        }
+
+        const b = bookingData as unknown as Booking;
+        setBooking(b);
+
+        // Access control: only candidate or interviewer
+        if (profile.id !== b.student_id && profile.id !== b.mentor_id && !profile.is_admin) {
+          setAccessDenied(true);
+          setLoading(false);
+          return;
+        }
+
+        if (scorecardData) {
+          setScorecard(scorecardData as unknown as InterviewScorecard);
+        } else {
+          setNotFound(true);
+        }
+      } catch (err) {
+        console.error('ViewScorecard fetch error:', err);
         setNotFound(true);
+      } finally {
+        setLoading(false);
       }
-
-      setLoading(false);
     };
     fetch();
   }, [bookingId, profile]);
