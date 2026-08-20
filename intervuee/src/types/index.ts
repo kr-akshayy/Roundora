@@ -133,3 +133,44 @@ export interface InterviewerApplication {
   // joined
   applicant?: Profile;
 }
+
+export type CallStatus =
+  | 'idle'
+  | 'calling'
+  | 'ringing'
+  | 'connecting'
+  | 'connected'
+  | 'reconnecting'
+  | 'declined'
+  | 'missed'
+  | 'ended'
+  | 'busy'
+  | 'error';
+
+export interface CallSession {
+  id: string;
+  booking_id: string;
+  student_id: string;
+  interviewer_id: string;
+  caller_id: string;
+  status: 'ringing' | 'accepted' | 'declined' | 'missed' | 'ended' | 'busy';
+  started_at?: string | null;
+  accepted_at?: string | null;
+  ended_at?: string | null;
+  created_at: string;
+}
+
+export interface CallInvitationData {
+  sessionId: string;
+  bookingId: string;
+  callerId: string;
+  callerName: string;
+  callerRole: 'student' | 'mentor';
+  callerAvatar?: string | null;
+  recipientId: string;
+  recipientName: string;
+  topic?: string | null;
+  meetingRoom: string;
+  scheduledTime?: string | null;
+}
+

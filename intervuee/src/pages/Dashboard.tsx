@@ -1,8 +1,9 @@
 import { useEffect, useState, FormEvent } from 'react';
 import { Link } from 'react-router-dom';
-import { Video, Calendar, Plus, Clock, CheckCircle2, MessageSquarePlus, Trash2, X, Copy, ExternalLink, Bell, CalendarPlus, FileText, AlertTriangle, XCircle, ClipboardList, Repeat, ToggleLeft, ToggleRight } from 'lucide-react';
+import { Video, Calendar, Plus, Clock, CheckCircle2, MessageSquarePlus, Trash2, X, Copy, ExternalLink, Bell, CalendarPlus, FileText, AlertTriangle, XCircle, ClipboardList, Repeat, ToggleLeft, ToggleRight, Phone } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { useAuthStore } from '../lib/auth-store';
+import { useCallStore } from '../lib/call-store';
 import StarRating from '../components/StarRating';
 import { TOPICS, topicLabel, topicColor } from '../lib/topics';
 import type { Booking, Slot, RecurringSchedule } from '../types';
@@ -177,12 +178,26 @@ function CancelConfirmationModal({
 }
 
 function StudentDashboard({ userId }: { userId: string }) {
+  const { profile } = useAuthStore();
+  const { initiateCall } = useCallStore();
   const [bookings, setBookings] = useState<Booking[]>([]);
   const [reviewedBookingIds, setReviewedBookingIds] = useState<Set<string>>(new Set());
   const [reviewingId, setReviewingId] = useState<string | null>(null);
   const [cancellingId, setCancellingId] = useState<string | null>(null);
   const [cancelModalBooking, setCancelModalBooking] = useState<Booking | null>(null);
   const [loading, setLoading] = useState(true);
+
+  const handleCallInterviewer = (b: Booking) => {
+    if (!profile || !b.mentor) return;
+    initiateCall({
+      bookingId: b.id,
+      recipient: b.mentor,
+      currentUser: profile,
+      topic: b.slot?.topic,
+      roomName: b.meeting_room,
+      scheduledTime: b.slot?.start_time,
+    });
+  };
 
   const fetchData = async () => {
     const [{ data: bookingData }, { data: reviewData }] = await Promise.all([
@@ -318,9 +333,18 @@ function StudentDashboard({ userId }: { userId: string }) {
               {new Date(nextSession.slot!.start_time).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', hour12: true })}
             </div>
           </div>
-          <Link to={`/room/${nextSession.id}`} className="btn-primary !px-3 !py-2 text-xs shrink-0">
-            <Video size={12} /> Join Now
-          </Link>
+          <div className="flex items-center gap-2 shrink-0">
+            <button
+              onClick={() => handleCallInterviewer(nextSession)}
+              className="flex items-center gap-1.5 text-xs px-3.5 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold shadow-md transition-all active:scale-95 animate-pulse"
+              title="Ring Interviewer"
+            >
+              <Phone size={13} /> Call Interviewer
+            </button>
+            <Link to={`/room/${nextSession.id}`} className="btn-primary !px-3 !py-2 text-xs shrink-0">
+              <Video size={12} /> Room
+            </Link>
+          </div>
         </div>
       )}
 
@@ -354,8 +378,15 @@ function StudentDashboard({ userId }: { userId: string }) {
               </span>
               {b.status === 'confirmed' && (
                 <>
+                  <button
+                    onClick={() => handleCallInterviewer(b)}
+                    className="flex items-center gap-1.5 text-xs px-3 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-semibold shadow-sm transition-all active:scale-95"
+                    title="Ring Interviewer with real-time audio/video call"
+                  >
+                    <Phone size={13} className="animate-pulse" /> Call
+                  </button>
                   <Link to={`/room/${b.id}`} className="btn-primary !px-3 !py-2 text-xs">
-                    <Video size={13} /> Join call
+                    <Video size={13} /> Room
                   </Link>
                   <button
                     onClick={() => downloadICS(b)}
@@ -502,9 +533,22 @@ function getUpcomingDatesForSchedule(schedule: RecurringSchedule, weeksAhead = 4
 
 function MentorDashboard({ userId, mentorProfileId, expertise }: { userId: string; mentorProfileId: string; expertise: string[] }) {
   const { profile } = useAuthStore();
+  const { initiateCall } = useCallStore();
   const [slots, setSlots] = useState<Slot[]>([]);
   const [bookings, setBookings] = useState<Booking[]>([]);
   const [loading, setLoading] = useState(true);
+
+  const handleCallStudent = (b: Booking) => {
+    if (!profile || !b.student) return;
+    initiateCall({
+      bookingId: b.id,
+      recipient: b.student,
+      currentUser: profile,
+      topic: b.slot?.topic,
+      roomName: b.meeting_room,
+      scheduledTime: b.slot?.start_time,
+    });
+  };
   const [newDate, setNewDate] = useState('');
   const [newTime, setNewTime] = useState('');
   const [duration, setDuration] = useState(45);
@@ -1152,8 +1196,15 @@ function MentorDashboard({ userId, mentorProfileId, expertise }: { userId: strin
                     <div className="flex items-center gap-2 flex-wrap">
                       {b.status === 'confirmed' && (
                         <>
+                          <button
+                            onClick={() => handleCallStudent(b)}
+                            className="flex items-center gap-1.5 text-xs px-3 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-semibold shadow-sm transition-all active:scale-95"
+                            title="Ring Student with real-time audio/video call"
+                          >
+                            <Phone size={13} className="animate-pulse" /> Call
+                          </button>
                           <Link to={`/room/${b.id}`} className="btn-primary !px-3 !py-2 text-xs">
-                            <Video size={13} /> Join call
+                            <Video size={13} /> Room
                           </Link>
                           <button
                             onClick={() => handleMarkCompleted(b.id)}

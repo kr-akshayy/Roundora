@@ -20,6 +20,7 @@ import AdminDashboard from './pages/AdminDashboard';
 import SubmitScorecard from './pages/SubmitScorecard';
 import ViewScorecard from './pages/ViewScorecard';
 import { useAuthStore } from './lib/auth-store';
+import CallManager from './components/CallManager';
 
 // Pages where the Navbar should be hidden (they have their own header)
 const HIDE_NAVBAR_PATHS = ['/login', '/signup', '/forgot-password', '/reset-password'];
@@ -37,6 +38,7 @@ export default function App() {
   return (
     <div className="min-h-screen flex flex-col">
       <PwaInstallBanner />
+      <CallManager />
       {showNavbar && <Navbar />}
       <main className="flex-1">
         <Routes>

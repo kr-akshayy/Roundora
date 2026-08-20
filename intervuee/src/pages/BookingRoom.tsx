@@ -22,8 +22,9 @@ import {
 import { supabase } from '../lib/supabase';
 import { generateScorecardPrintableWindow } from '../lib/scorecardPdf';
 import { useAuthStore } from '../lib/auth-store';
+import { useCallStore } from '../lib/call-store';
 import type { Booking } from '../types';
-import NativeVideoRoom from '../components/NativeVideoRoom';
+import ModernVideoCall from '../components/ModernVideoCall';
 
 const TEAM_CONTACT_NUMBER = '7488455190';
 const TEAM_CONTACT_PHONE = '+917488455190';
@@ -263,6 +264,28 @@ export default function BookingRoom() {
     );
   }
 
+  // Security Check: Only the assigned student or interviewer (or admin) can access this interview room
+  const isAuthorized =
+    profile?.id &&
+    (profile.id === booking.student_id || profile.id === booking.mentor_id || profile.is_admin);
+
+  if (!isAuthorized) {
+    return (
+      <div className="max-w-md mx-auto px-6 py-20 text-center">
+        <div className="w-16 h-16 rounded-full bg-rose-100 border border-rose-300 text-rose-600 flex items-center justify-center mx-auto mb-4">
+          <ShieldCheck size={36} />
+        </div>
+        <h1 className="text-xl font-bold text-slate-900 mb-2">Access Denied</h1>
+        <p className="text-slate-500 text-sm mb-6">
+          You are not authorized to join this interview session. Only the booked student and interviewer can access this room.
+        </p>
+        <Link to="/dashboard" className="btn-primary inline-flex">
+          Return to Dashboard
+        </Link>
+      </div>
+    );
+  }
+
   if (booking.status === 'cancelled') {
     return (
       <div className="max-w-2xl mx-auto px-4 sm:px-6 py-12">
@@ -411,20 +434,22 @@ export default function BookingRoom() {
             </div>
           </div>
 
-          {/* Native High-Performance WebRTC Video Call (Zero Ads, Zero Lag, Zero App Download) */}
-          <NativeVideoRoom
+          {/* Modern 1-to-1 WebRTC Video Call */}
+          <ModernVideoCall
             bookingId={booking.id}
             roomName={booking.meeting_room}
             userId={profile?.id ?? 'guest'}
             userName={profile?.full_name ?? 'Participant'}
             otherPersonName={otherPerson?.full_name ?? 'Participant'}
             otherRole={otherRole}
+            topic={booking.slot?.topic}
+            onEndCall={() => setCallEnded(true)}
           />
 
           {/* Bottom Bar note & End Call quick link */}
           <div className="mt-4 flex items-center justify-between gap-4 flex-wrap text-xs text-slate-500">
             <p className="hidden sm:block">
-              💡 Mobile browser audio/video issues? Click <strong>"Open Fullscreen App"</strong> above.
+              💡 Ultra-low latency WebRTC 1-to-1 video encryption active.
             </p>
             <button
               onClick={() => setCallEnded(true)}
