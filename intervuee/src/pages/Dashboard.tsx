@@ -6,7 +6,7 @@ import { useAuthStore } from '../lib/auth-store';
 import { useCallStore } from '../lib/call-store';
 import StarRating from '../components/StarRating';
 import { TOPICS, topicLabel, topicColor } from '../lib/topics';
-import type { Booking, Slot, RecurringSchedule } from '../types';
+import type { Booking, Slot, RecurringSchedule, Profile } from '../types';
 
 function ReviewForm({ booking, onDone }: { booking: Booking; onDone: () => void }) {
   const [rating, setRating] = useState(5);
@@ -188,10 +188,27 @@ function StudentDashboard({ userId }: { userId: string }) {
   const [loading, setLoading] = useState(true);
 
   const handleCallInterviewer = (b: Booking) => {
-    if (!profile || !b.mentor) return;
+    if (!profile) return;
+    const mentorId = b.mentor?.id || b.mentor_id;
+    if (!mentorId) return;
+
+    const mentorRecipient: Profile = {
+      id: mentorId,
+      full_name: b.mentor?.full_name || 'Interviewer',
+      role: 'mentor',
+      avatar_url: b.mentor?.avatar_url || null,
+      headline: b.mentor?.headline || null,
+      bio: null,
+      company: null,
+      years_experience: null,
+      price_per_session: null,
+      expertise: null,
+      created_at: new Date().toISOString(),
+    };
+
     initiateCall({
       bookingId: b.id,
-      recipient: b.mentor,
+      recipient: mentorRecipient,
       currentUser: profile,
       topic: b.slot?.topic,
       roomName: b.meeting_room,
@@ -539,10 +556,27 @@ function MentorDashboard({ userId, mentorProfileId, expertise }: { userId: strin
   const [loading, setLoading] = useState(true);
 
   const handleCallStudent = (b: Booking) => {
-    if (!profile || !b.student) return;
+    if (!profile) return;
+    const studentId = b.student?.id || b.student_id;
+    if (!studentId) return;
+
+    const studentRecipient: Profile = {
+      id: studentId,
+      full_name: b.student?.full_name || 'Student',
+      role: 'student',
+      avatar_url: b.student?.avatar_url || null,
+      headline: null,
+      bio: null,
+      company: null,
+      years_experience: null,
+      price_per_session: null,
+      expertise: null,
+      created_at: new Date().toISOString(),
+    };
+
     initiateCall({
       bookingId: b.id,
-      recipient: b.student,
+      recipient: studentRecipient,
       currentUser: profile,
       topic: b.slot?.topic,
       roomName: b.meeting_room,

@@ -45,3 +45,13 @@ DROP POLICY IF EXISTS "Participants can update own call sessions" ON call_sessio
 CREATE POLICY "Participants can update own call sessions"
   ON call_sessions FOR UPDATE
   USING (auth.uid() = student_id OR auth.uid() = interviewer_id);
+
+-- 3. ENABLE SUPABASE REALTIME REPLICATION (For Instant Call Events)
+DO $$
+BEGIN
+  IF EXISTS (SELECT 1 FROM pg_publication WHERE pubname = 'supabase_realtime') THEN
+    ALTER PUBLICATION supabase_realtime ADD TABLE call_sessions;
+  END IF;
+EXCEPTION
+  WHEN duplicate_object THEN NULL;
+END $$;

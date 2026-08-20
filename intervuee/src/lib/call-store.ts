@@ -32,6 +32,7 @@ interface CallStoreState {
   roomSignalingChannel: RealtimeChannel | null;
   timeoutTimer: number | null;
   durationTimer: number | null;
+  pollingTimer: number | null;
 
   // Actions
   initUserListener: (userId: string) => void;
@@ -63,38 +64,24 @@ export const useCallStore = create<CallStoreState>((set, get) => ({
   roomSignalingChannel: null,
   timeoutTimer: null,
   durationTimer: null,
+  pollingTimer: null,
 
   initUserListener: (userId: string) => {
     // If already listening on this user channel, skip
-    const currentChannel = get().userListeningChannel;
-    if (currentChannel) {
+    if (get().userListeningChannel) {
       return;
     }
 
     const channelName = `user-incoming-calls-${userId}`;
-    const channel = supabase.channel(channelName, {
-      config: { broadcast: { self: false } },
-    });
+    const channel = supabase.channel(channelName);
 
+    // 1. Listen for WebRTC Broadcasts
     channel
       .on('broadcast', { event: 'call:invite' }, ({ payload }: { payload: CallInvitationData }) => {
-        // If already in a call, send back busy signal
         if (get().activeCall || get().outgoingCall || get().incomingCall) {
-          const roomChannel = supabase.channel(`room-call-${payload.bookingId}`);
-          roomChannel.subscribe((status) => {
-            if (status === 'SUBSCRIBED') {
-              roomChannel.send({
-                type: 'broadcast',
-                event: 'call:busy',
-                payload: { sessionId: payload.sessionId },
-              });
-              setTimeout(() => supabase.removeChannel(roomChannel), 1000);
-            }
-          });
           return;
         }
 
-        // Set incoming call and ring
         set({
           incomingCall: payload,
           callStatus: 'ringing',
@@ -109,17 +96,123 @@ export const useCallStore = create<CallStoreState>((set, get) => ({
           callStatus: 'idle',
         });
       })
+      // 2. Listen for Postgres DB Changes on call_sessions
+      .on(
+        'postgres_changes',
+        {
+          event: 'INSERT',
+          schema: 'public',
+          table: 'call_sessions',
+        },
+        async (payload: any) => {
+          const row = payload.new;
+          if (!row || row.caller_id === userId) return;
+
+          if (
+            (row.interviewer_id === userId || row.student_id === userId) &&
+            row.status === 'ringing'
+          ) {
+            if (get().activeCall || get().outgoingCall || get().incomingCall) return;
+
+            // Fetch caller profile and booking details
+            const [{ data: callerProfile }, { data: bookingData }] = await Promise.all([
+              supabase.from('profiles').select('*').eq('id', row.caller_id).single(),
+              supabase.from('bookings').select('*, slot:slot_id(*)').eq('id', row.booking_id).single(),
+            ]);
+
+            const invitation: CallInvitationData = {
+              sessionId: row.id,
+              bookingId: row.booking_id,
+              callerId: row.caller_id,
+              callerName: callerProfile?.full_name || 'Interview Participant',
+              callerRole: callerProfile?.role || 'mentor',
+              callerAvatar: callerProfile?.avatar_url,
+              recipientId: userId,
+              recipientName: 'You',
+              topic: bookingData?.slot?.topic || 'Mock Interview',
+              meetingRoom: bookingData?.meeting_room || row.booking_id,
+              scheduledTime: bookingData?.slot?.start_time,
+            };
+
+            set({
+              incomingCall: invitation,
+              callStatus: 'ringing',
+              errorMessage: null,
+            });
+            ringtone.playIncoming();
+          }
+        }
+      )
       .subscribe();
 
-    set({ userListeningChannel: channel });
+    // 3. Fallback Polling (every 2.5s) to guarantee arrival even if WebSockets reconnect
+    const pollInterval = window.setInterval(async () => {
+      if (get().activeCall || get().outgoingCall || get().incomingCall) return;
+
+      try {
+        const { data: recentSessions } = await supabase
+          .from('call_sessions')
+          .select('*, booking:booking_id(*)')
+          .or(`interviewer_id.eq.${userId},student_id.eq.${userId}`)
+          .eq('status', 'ringing')
+          .neq('caller_id', userId)
+          .order('created_at', { ascending: false })
+          .limit(1);
+
+        if (recentSessions && recentSessions.length > 0) {
+          const row = recentSessions[0];
+          // Check if session created in last 45 seconds
+          const createdAt = new Date(row.created_at).getTime();
+          if (Date.now() - createdAt < 45000) {
+            if (get().incomingCall?.sessionId === row.id) return;
+
+            const { data: callerProfile } = await supabase
+              .from('profiles')
+              .select('*')
+              .eq('id', row.caller_id)
+              .single();
+
+            const invitation: CallInvitationData = {
+              sessionId: row.id,
+              bookingId: row.booking_id,
+              callerId: row.caller_id,
+              callerName: callerProfile?.full_name || 'Interview Participant',
+              callerRole: callerProfile?.role || 'mentor',
+              callerAvatar: callerProfile?.avatar_url,
+              recipientId: userId,
+              recipientName: 'You',
+              topic: row.booking?.topic || 'Mock Interview',
+              meetingRoom: row.booking?.meeting_room || row.booking_id,
+            };
+
+            set({
+              incomingCall: invitation,
+              callStatus: 'ringing',
+              errorMessage: null,
+            });
+            ringtone.playIncoming();
+          }
+        }
+      } catch {
+        // ignore polling errors
+      }
+    }, 2500);
+
+    set({
+      userListeningChannel: channel,
+      pollingTimer: pollInterval,
+    });
   },
 
   cleanupUserListener: () => {
-    const channel = get().userListeningChannel;
-    if (channel) {
-      supabase.removeChannel(channel);
-      set({ userListeningChannel: null });
+    const { userListeningChannel, pollingTimer } = get();
+    if (userListeningChannel) {
+      supabase.removeChannel(userListeningChannel);
     }
+    if (pollingTimer) {
+      clearInterval(pollingTimer);
+    }
+    set({ userListeningChannel: null, pollingTimer: null });
   },
 
   initiateCall: async ({ bookingId, recipient, currentUser, topic, roomName, scheduledTime }) => {
@@ -162,7 +255,7 @@ export const useCallStore = create<CallStoreState>((set, get) => ({
 
     ringtone.playOutgoing();
 
-    // 1. Log call session in DB (optional/non-blocking)
+    // 1. Insert call session in DB (Primary reliable trigger)
     try {
       await supabase.from('call_sessions').insert({
         id: sessionId,
@@ -173,10 +266,10 @@ export const useCallStore = create<CallStoreState>((set, get) => ({
         status: 'ringing',
       });
     } catch (e) {
-      console.warn('Could not insert call_session to db (table may not exist yet):', e);
+      console.warn('Could not insert call_session to DB:', e);
     }
 
-    // 2. Broadcast call invitation to recipient user channel
+    // 2. Broadcast call invitation directly to recipient channel
     const recipientChannel = supabase.channel(`user-incoming-calls-${recipient.id}`);
     recipientChannel.subscribe((status) => {
       if (status === 'SUBSCRIBED') {
@@ -185,7 +278,6 @@ export const useCallStore = create<CallStoreState>((set, get) => ({
           event: 'call:invite',
           payload: invitation,
         });
-        setTimeout(() => supabase.removeChannel(recipientChannel), 2000);
       }
     });
 
@@ -198,16 +290,8 @@ export const useCallStore = create<CallStoreState>((set, get) => ({
           clearTimeout(get().timeoutTimer!);
         }
 
-        // Start call duration timer
-        const timer = window.setInterval(() => {
-          set((s) => ({ callDuration: s.callDuration + 1 }));
-        }, 1000);
-
-        set({
-          callStatus: 'connecting',
-          durationTimer: timer,
-          outgoingCall: null,
-        });
+        // Redirect directly into room
+        window.location.href = `/room/${bookingId}`;
       })
       .on('broadcast', { event: 'call:decline' }, () => {
         ringtone.stop();
@@ -216,18 +300,6 @@ export const useCallStore = create<CallStoreState>((set, get) => ({
         set({
           callStatus: 'declined',
           errorMessage: 'The interview call was declined.',
-        });
-        setTimeout(() => {
-          get().resetCallState();
-        }, 3500);
-      })
-      .on('broadcast', { event: 'call:busy' }, () => {
-        ringtone.stop();
-        ringtone.playCallEnd();
-        if (get().timeoutTimer) clearTimeout(get().timeoutTimer!);
-        set({
-          callStatus: 'busy',
-          errorMessage: 'The user is currently on another call.',
         });
         setTimeout(() => {
           get().resetCallState();
@@ -247,7 +319,40 @@ export const useCallStore = create<CallStoreState>((set, get) => ({
       })
       .subscribe();
 
-    // 4. Timeout handler (45 seconds)
+    // 4. Also listen to DB updates on this call_session
+    const sessionDbChannel = supabase
+      .channel(`db-session-${sessionId}`)
+      .on(
+        'postgres_changes',
+        {
+          event: 'UPDATE',
+          schema: 'public',
+          table: 'call_sessions',
+          filter: `id=eq.${sessionId}`,
+        },
+        (payload: any) => {
+          const row = payload.new;
+          if (row.status === 'accepted') {
+            ringtone.stop();
+            if (get().timeoutTimer) clearTimeout(get().timeoutTimer!);
+            window.location.href = `/room/${bookingId}`;
+          } else if (row.status === 'declined') {
+            ringtone.stop();
+            ringtone.playCallEnd();
+            if (get().timeoutTimer) clearTimeout(get().timeoutTimer!);
+            set({
+              callStatus: 'declined',
+              errorMessage: 'The interview call was declined.',
+            });
+            setTimeout(() => {
+              get().resetCallState();
+            }, 3500);
+          }
+        }
+      )
+      .subscribe();
+
+    // 5. Timeout handler (45 seconds)
     const timeout = window.setTimeout(async () => {
       if (get().callStatus === 'calling' || get().callStatus === 'ringing') {
         ringtone.stop();
@@ -262,7 +367,6 @@ export const useCallStore = create<CallStoreState>((set, get) => ({
               event: 'call:cancel',
               payload: { sessionId },
             });
-            setTimeout(() => supabase.removeChannel(cancelChannel), 1500);
           }
         });
 
@@ -278,7 +382,7 @@ export const useCallStore = create<CallStoreState>((set, get) => ({
 
         set({
           callStatus: 'missed',
-          errorMessage: 'No answer. The interviewer/student may be away.',
+          errorMessage: 'No answer. The participant may be away.',
         });
         setTimeout(() => {
           get().resetCallState();
@@ -298,22 +402,7 @@ export const useCallStore = create<CallStoreState>((set, get) => ({
 
     ringtone.stop();
 
-    const activeCall: ActiveCallState = {
-      sessionId: incoming.sessionId,
-      bookingId: incoming.bookingId,
-      roomName: incoming.meetingRoom,
-      role: 'receiver',
-      otherPerson: {
-        id: incoming.callerId,
-        name: incoming.callerName,
-        role: incoming.callerRole === 'mentor' ? 'Interviewer' : 'Student',
-        avatar: incoming.callerAvatar,
-      },
-      topic: incoming.topic,
-      scheduledTime: incoming.scheduledTime,
-    };
-
-    // Update DB
+    // 1. Update DB immediately
     try {
       await supabase
         .from('call_sessions')
@@ -327,43 +416,25 @@ export const useCallStore = create<CallStoreState>((set, get) => ({
       // ignore
     }
 
-    // Connect to room channel and broadcast accept
+    // 2. Broadcast accept event to room channel
     const roomChannel = supabase.channel(`room-call-${incoming.bookingId}`);
-    roomChannel
-      .on('broadcast', { event: 'call:ended' }, () => {
-        ringtone.stop();
-        ringtone.playCallEnd();
-        if (get().durationTimer) clearInterval(get().durationTimer!);
-        set({
-          callStatus: 'ended',
-          errorMessage: 'The call has ended.',
+    roomChannel.subscribe((status) => {
+      if (status === 'SUBSCRIBED') {
+        roomChannel.send({
+          type: 'broadcast',
+          event: 'call:accept',
+          payload: { sessionId: incoming.sessionId },
         });
-        setTimeout(() => {
-          get().resetCallState();
-        }, 3000);
-      })
-      .subscribe((status) => {
-        if (status === 'SUBSCRIBED') {
-          roomChannel.send({
-            type: 'broadcast',
-            event: 'call:accept',
-            payload: { sessionId: incoming.sessionId },
-          });
-        }
-      });
-
-    // Start call duration timer
-    const timer = window.setInterval(() => {
-      set((s) => ({ callDuration: s.callDuration + 1 }));
-    }, 1000);
+      }
+    });
 
     set({
       incomingCall: null,
-      activeCall,
       callStatus: 'connecting',
-      durationTimer: timer,
-      roomSignalingChannel: roomChannel,
     });
+
+    // 3. Immediately redirect to the interview room
+    window.location.href = `/room/${incoming.bookingId}`;
   },
 
   declineIncomingCall: async () => {
@@ -381,7 +452,6 @@ export const useCallStore = create<CallStoreState>((set, get) => ({
           event: 'call:decline',
           payload: { sessionId: incoming.sessionId },
         });
-        setTimeout(() => supabase.removeChannel(roomChannel), 1500);
       }
     });
 
@@ -404,7 +474,6 @@ export const useCallStore = create<CallStoreState>((set, get) => ({
     ringtone.playCallEnd();
 
     if (outgoing) {
-      // Broadcast cancel
       const recipientChannel = supabase.channel(`user-incoming-calls-${outgoing.recipientId}`);
       recipientChannel.subscribe((status) => {
         if (status === 'SUBSCRIBED') {
@@ -413,7 +482,6 @@ export const useCallStore = create<CallStoreState>((set, get) => ({
             event: 'call:cancel',
             payload: { sessionId: outgoing.sessionId },
           });
-          setTimeout(() => supabase.removeChannel(recipientChannel), 1500);
         }
       });
 
