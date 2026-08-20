@@ -576,6 +576,62 @@ function MentorDashboard({ userId, mentorProfileId, expertise }: { userId: strin
     }
   };
 
+  /**
+   * Auto-roll forward: any unbooked one-time slot whose time has PASSED
+   * gets deleted and a new slot is created for the NEXT DAY at the same time.
+   * If interviewer manually deleted the slot → it won't be here → no rollover.
+   */
+  const autoRollForwardSlots = async (existingSlots: Slot[]) => {
+    const now = new Date();
+    // Past, unbooked slots
+    const expiredSlots = existingSlots.filter(
+      (s) => !s.is_booked && new Date(s.start_time) < now
+    );
+    if (expiredSlots.length === 0) return;
+
+    // Build set of all existing slot times to avoid duplicate next-day slots
+    const existingTimes = new Set(
+      existingSlots.map((s) => {
+        const d = new Date(s.start_time);
+        d.setSeconds(0, 0);
+        return d.getTime();
+      })
+    );
+
+    const toInsert: { mentor_id: string; start_time: string; duration_minutes: number; topic: string | null; is_booked: boolean }[] = [];
+    const toDelete: string[] = [];
+
+    for (const slot of expiredSlots) {
+      const nextDay = new Date(slot.start_time);
+      nextDay.setDate(nextDay.getDate() + 1); // +1 day, same time
+      nextDay.setSeconds(0, 0);
+
+      const key = nextDay.getTime();
+      // Only roll forward if next-day slot doesn't already exist
+      if (!existingTimes.has(key) && nextDay > now) {
+        toInsert.push({
+          mentor_id: userId,
+          start_time: nextDay.toISOString(),
+          duration_minutes: slot.duration_minutes,
+          topic: slot.topic,
+          is_booked: false,
+        });
+        existingTimes.add(key); // prevent same-run duplicates
+      }
+      toDelete.push(slot.id);
+    }
+
+    // Delete expired slots and insert rolled-forward ones in parallel
+    await Promise.all([
+      toDelete.length > 0
+        ? supabase.from('slots').delete().in('id', toDelete)
+        : Promise.resolve(),
+      toInsert.length > 0
+        ? supabase.from('slots').insert(toInsert)
+        : Promise.resolve(),
+    ]);
+  };
+
   const fetchData = async () => {
     const [{ data: slotData }, { data: bookingData }, { data: recData }] = await Promise.all([
       supabase.from('slots').select('*').eq('mentor_id', userId).order('start_time', { ascending: true }),
@@ -595,7 +651,10 @@ function MentorDashboard({ userId, mentorProfileId, expertise }: { userId: strin
     setRecurringSchedules(fetchedSchedules);
     setLoading(false);
 
-    // Auto-generate slots from active recurring schedules
+    // 1. Roll forward expired unbooked one-time slots → next day same time
+    await autoRollForwardSlots(fetchedSlots);
+
+    // 2. Auto-generate slots from active recurring schedules
     await autoGenerateSlots(fetchedSchedules, fetchedSlots);
 
     // Re-fetch slots after auto-generation so UI reflects new slots
