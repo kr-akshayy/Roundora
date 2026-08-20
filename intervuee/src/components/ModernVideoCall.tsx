@@ -17,10 +17,13 @@ import {
   Volume2,
   VolumeX,
   Scan,
+  MessageSquare,
 } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { getIceServers } from '../lib/webrtcConfig';
 import { useCallStore } from '../lib/call-store';
+import ChatDrawer from './ChatDrawer';
+import type { Profile } from '../types';
 
 interface ModernVideoCallProps {
   bookingId: string;
@@ -49,6 +52,7 @@ export default function ModernVideoCall({
   const [isVideoOn, setIsVideoOn] = useState(true);
   const [isScreenSharing, setIsScreenSharing] = useState(false);
   const [isSpeakerOn, setIsSpeakerOn] = useState(true);
+  const [isChatOpen, setIsChatOpen] = useState(false);
   const [videoFitMode, setVideoFitMode] = useState<'contain' | 'cover'>('contain');
   const [peerConnected, setPeerConnected] = useState(false);
   const [connectionState, setConnectionState] = useState<'connecting' | 'connected' | 'reconnecting' | 'disconnected'>('connecting');
@@ -564,6 +568,19 @@ export default function ModernVideoCall({
               <Scan size={20} />
             </button>
 
+            {/* 1-to-1 Chat Toggle */}
+            <button
+              onClick={() => setIsChatOpen(!isChatOpen)}
+              className={`p-3 rounded-xl transition-all ${
+                isChatOpen
+                  ? 'bg-brand-600 text-white shadow-md shadow-brand-500/30'
+                  : 'bg-slate-800 text-white hover:bg-slate-700'
+              }`}
+              title="Open In-Call Chat"
+            >
+              <MessageSquare size={20} />
+            </button>
+
             {/* Screen Sharing Toggle */}
             <button
               onClick={toggleScreenShare}
@@ -598,6 +615,29 @@ export default function ModernVideoCall({
           </div>
         </div>
       </div>
+
+      {/* In-Call 1-to-1 Real-time Chat Drawer */}
+      {isChatOpen && (
+        <ChatDrawer
+          bookingId={bookingId}
+          recipient={{
+            id: otherRole === 'Student' ? (userId === 'guest' ? '' : otherPersonName) : (userId === 'guest' ? '' : otherPersonName),
+            full_name: otherPersonName,
+            role: otherRole.toLowerCase().includes('mentor') ? 'mentor' : 'student',
+            avatar_url: null,
+            headline: null,
+            bio: null,
+            company: null,
+            years_experience: null,
+            price_per_session: null,
+            expertise: null,
+            created_at: new Date().toISOString(),
+          }}
+          topic={topic}
+          isOpen={isChatOpen}
+          onClose={() => setIsChatOpen(false)}
+        />
+      )}
     </div>
   );
 }

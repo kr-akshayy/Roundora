@@ -151,13 +151,38 @@ export default function BookingRoom() {
         }),
       });
 
-      const resData = await res.json().catch(() => ({}));
-      setTicketSending(false);
+      // 1. Insert ticket into support_tickets table
+      await supabase.from('support_tickets').insert({
+        booking_id: bookingId,
+        user_id: profile.id,
+        target_user_id: otherPerson?.id,
+        category: ticketCategory,
+        subject: ticketSubject.trim() || `${ticketCategory.toUpperCase()} Report - Session ${bookingId?.slice(0, 8)}`,
+        message: ticketMessage.trim(),
+        status: 'open',
+      });
 
-      if (!res.ok || resData.error) {
-        throw new Error(resData.error || 'Failed to submit ticket');
+      // 2. Create notification for target user / interviewer
+      if (otherPerson?.id) {
+        await supabase.from('notifications').insert({
+          user_id: otherPerson.id,
+          title: `🎟️ Ticket raised: ${ticketSubject.trim() || ticketCategory.toUpperCase()}`,
+          message: `${profile.full_name} submitted a ticket: "${ticketMessage.trim().slice(0, 80)}..."`,
+          type: 'ticket',
+          link: `/room/${bookingId}`,
+        });
       }
 
+      // 3. Create confirmation notification for sender
+      await supabase.from('notifications').insert({
+        user_id: profile.id,
+        title: `🎟️ Support Ticket Submitted`,
+        message: `Your ticket regarding "${ticketSubject.trim() || ticketCategory}" has been received by our support team.`,
+        type: 'ticket',
+        link: `/room/${bookingId}`,
+      });
+
+      setTicketSending(false);
       setTicketSent(true);
     } catch (err) {
       console.error('Ticket submit error:', err);

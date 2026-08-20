@@ -2,6 +2,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import { LayoutDashboard, LogOut, ShieldCheck, Star } from 'lucide-react';
 import { useAuthStore } from '../lib/auth-store';
 import Avatar from './Avatar';
+import NotificationsDropdown from './NotificationsDropdown';
 
 export default function Navbar() {
   const { session, profile, signOut } = useAuthStore();
@@ -63,6 +64,7 @@ export default function Navbar() {
                 <LayoutDashboard size={14} className="shrink-0" />
                 <span className="hidden xs:inline sm:inline">{profile?.role === 'mentor' ? 'Sessions' : 'Bookings'}</span>
               </Link>
+              <NotificationsDropdown />
               <button
                 onClick={handleSignOut}
                 className="flex items-center gap-1 text-slate-500 hover:text-rose-600 hover:bg-rose-50 transition-colors px-2 sm:px-3 py-1.5 sm:py-2 rounded-lg"

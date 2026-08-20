@@ -1,10 +1,11 @@
 import { useEffect, useState, FormEvent } from 'react';
 import { Link } from 'react-router-dom';
-import { Video, Calendar, Plus, Clock, CheckCircle2, MessageSquarePlus, Trash2, X, Copy, ExternalLink, Bell, CalendarPlus, FileText, AlertTriangle, XCircle, ClipboardList, Repeat, ToggleLeft, ToggleRight, Phone } from 'lucide-react';
+import { Video, Calendar, Plus, Clock, CheckCircle2, MessageSquarePlus, MessageSquare, Trash2, X, Copy, ExternalLink, Bell, CalendarPlus, FileText, AlertTriangle, XCircle, ClipboardList, Repeat, ToggleLeft, ToggleRight, Phone } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { useAuthStore } from '../lib/auth-store';
 import { useCallStore } from '../lib/call-store';
 import StarRating from '../components/StarRating';
+import ChatDrawer from '../components/ChatDrawer';
 import { TOPICS, topicLabel, topicColor } from '../lib/topics';
 import type { Booking, Slot, RecurringSchedule, Profile } from '../types';
 
@@ -185,6 +186,7 @@ function StudentDashboard({ userId }: { userId: string }) {
   const [reviewingId, setReviewingId] = useState<string | null>(null);
   const [cancellingId, setCancellingId] = useState<string | null>(null);
   const [cancelModalBooking, setCancelModalBooking] = useState<Booking | null>(null);
+  const [activeChatBooking, setActiveChatBooking] = useState<Booking | null>(null);
   const [loading, setLoading] = useState(true);
 
   const handleCallInterviewer = (b: Booking) => {
@@ -406,6 +408,13 @@ function StudentDashboard({ userId }: { userId: string }) {
                     <Video size={13} /> Room
                   </Link>
                   <button
+                    onClick={() => setActiveChatBooking(b)}
+                    className="flex items-center gap-1 text-xs px-3 py-2 rounded-xl border border-slate-200 text-slate-700 bg-white hover:bg-slate-50 transition-colors shadow-sm"
+                    title="Chat directly with interviewer"
+                  >
+                    <MessageSquare size={13} className="text-brand-600" /> Chat
+                  </button>
+                  <button
                     onClick={() => downloadICS(b)}
                     className="flex items-center gap-1 text-xs px-3 py-2 rounded-xl border border-brand-200 text-brand-700 bg-brand-50 hover:bg-brand-100 transition-colors"
                     title="Add to calendar (Google/iPhone) for reminders"
@@ -424,6 +433,13 @@ function StudentDashboard({ userId }: { userId: string }) {
               )}
               {b.status === 'completed' && (
                 <>
+                  <button
+                    onClick={() => setActiveChatBooking(b)}
+                    className="flex items-center gap-1 text-xs px-3 py-2 rounded-xl border border-slate-200 text-slate-700 bg-white hover:bg-slate-50 transition-colors shadow-sm"
+                    title="Chat with interviewer"
+                  >
+                    <MessageSquare size={13} className="text-brand-600" /> Chat
+                  </button>
                   <Link
                     to={`/scorecard/${b.id}`}
                     className="flex items-center gap-1 text-xs px-3 py-2 rounded-xl border border-indigo-200 text-indigo-700 bg-indigo-50 hover:bg-indigo-100 transition-colors font-semibold"
@@ -467,6 +483,29 @@ function StudentDashboard({ userId }: { userId: string }) {
           onConfirm={async (reason) => {
             await handleCancelBooking(cancelModalBooking, reason);
           }}
+        />
+      )}
+
+      {/* 1-to-1 Interview Chat Drawer */}
+      {activeChatBooking && (
+        <ChatDrawer
+          bookingId={activeChatBooking.id}
+          recipient={{
+            id: activeChatBooking.mentor?.id || activeChatBooking.mentor_id,
+            full_name: activeChatBooking.mentor?.full_name || 'Interviewer',
+            role: 'mentor',
+            avatar_url: activeChatBooking.mentor?.avatar_url || null,
+            headline: null,
+            bio: null,
+            company: null,
+            years_experience: null,
+            price_per_session: null,
+            expertise: null,
+            created_at: new Date().toISOString(),
+          }}
+          topic={activeChatBooking.slot?.topic}
+          isOpen={!!activeChatBooking}
+          onClose={() => setActiveChatBooking(null)}
         />
       )}
     </div>
@@ -553,6 +592,7 @@ function MentorDashboard({ userId, mentorProfileId, expertise }: { userId: strin
   const { initiateCall } = useCallStore();
   const [slots, setSlots] = useState<Slot[]>([]);
   const [bookings, setBookings] = useState<Booking[]>([]);
+  const [activeChatBooking, setActiveChatBooking] = useState<Booking | null>(null);
   const [loading, setLoading] = useState(true);
 
   const handleCallStudent = (b: Booking) => {
@@ -1241,6 +1281,13 @@ function MentorDashboard({ userId, mentorProfileId, expertise }: { userId: strin
                             <Video size={13} /> Room
                           </Link>
                           <button
+                            onClick={() => setActiveChatBooking(b)}
+                            className="flex items-center gap-1 text-xs px-3 py-2 rounded-xl border border-slate-200 text-slate-700 bg-white hover:bg-slate-50 transition-colors shadow-sm"
+                            title="Chat with candidate"
+                          >
+                            <MessageSquare size={13} className="text-brand-600" /> Chat
+                          </button>
+                          <button
                             onClick={() => handleMarkCompleted(b.id)}
                             className="btn-secondary !px-3 !py-2 text-xs"
                             title="Mark this session as completed"
@@ -1259,6 +1306,13 @@ function MentorDashboard({ userId, mentorProfileId, expertise }: { userId: strin
                       )}
                       {b.status === 'completed' && (
                         <>
+                          <button
+                            onClick={() => setActiveChatBooking(b)}
+                            className="flex items-center gap-1 text-xs px-3 py-2 rounded-xl border border-slate-200 text-slate-700 bg-white hover:bg-slate-50 transition-colors shadow-sm"
+                            title="Chat with candidate"
+                          >
+                            <MessageSquare size={13} className="text-brand-600" /> Chat
+                          </button>
                           <Link
                             to={`/scorecard/${b.id}/submit`}
                             className="flex items-center gap-1.5 text-xs px-3 py-2 rounded-xl border border-brand-200 text-brand-700 bg-brand-50 hover:bg-brand-100 transition-colors font-semibold"
@@ -1293,6 +1347,29 @@ function MentorDashboard({ userId, mentorProfileId, expertise }: { userId: strin
           onConfirm={async (reason) => {
             await handleCancelBookingByMentor(cancelModalBooking, reason);
           }}
+        />
+      )}
+
+      {/* 1-to-1 Interview Chat Drawer */}
+      {activeChatBooking && (
+        <ChatDrawer
+          bookingId={activeChatBooking.id}
+          recipient={{
+            id: activeChatBooking.student?.id || activeChatBooking.student_id,
+            full_name: activeChatBooking.student?.full_name || 'Student',
+            role: 'student',
+            avatar_url: activeChatBooking.student?.avatar_url || null,
+            headline: null,
+            bio: null,
+            company: null,
+            years_experience: null,
+            price_per_session: null,
+            expertise: null,
+            created_at: new Date().toISOString(),
+          }}
+          topic={activeChatBooking.slot?.topic}
+          isOpen={!!activeChatBooking}
+          onClose={() => setActiveChatBooking(null)}
         />
       )}
     </div>

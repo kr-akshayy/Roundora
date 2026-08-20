@@ -174,3 +174,41 @@ export interface CallInvitationData {
   scheduledTime?: string | null;
 }
 
+export interface InterviewMessage {
+  id: string;
+  booking_id: string;
+  sender_id: string;
+  receiver_id: string;
+  content: string;
+  is_read: boolean;
+  created_at: string;
+  sender?: Profile;
+}
+
+export interface SupportTicket {
+  id: string;
+  booking_id?: string | null;
+  user_id: string;
+  target_user_id?: string | null;
+  category: string;
+  subject: string;
+  message: string;
+  status: 'open' | 'in_progress' | 'resolved' | 'closed';
+  admin_reply?: string | null;
+  created_at: string;
+  user?: Profile;
+  target_user?: Profile;
+}
+
+export interface AppNotification {
+  id: string;
+  user_id: string;
+  title: string;
+  message: string;
+  type: 'ticket' | 'chat' | 'call' | 'booking' | 'general';
+  link?: string | null;
+  is_read: boolean;
+  created_at: string;
+}
+
+
