@@ -1,11 +1,11 @@
 import { useEffect, useState, FormEvent } from 'react';
 import { Link } from 'react-router-dom';
-import { Video, Calendar, Plus, Clock, CheckCircle2, MessageSquarePlus, Trash2, X, Copy, ExternalLink, Bell, CalendarPlus, FileText, AlertTriangle, XCircle, ClipboardList } from 'lucide-react';
+import { Video, Calendar, Plus, Clock, CheckCircle2, MessageSquarePlus, Trash2, X, Copy, ExternalLink, Bell, CalendarPlus, FileText, AlertTriangle, XCircle, ClipboardList, Repeat, ToggleLeft, ToggleRight } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { useAuthStore } from '../lib/auth-store';
 import StarRating from '../components/StarRating';
 import { TOPICS, topicLabel, topicColor } from '../lib/topics';
-import type { Booking, Slot } from '../types';
+import type { Booking, Slot, RecurringSchedule } from '../types';
 
 function ReviewForm({ booking, onDone }: { booking: Booking; onDone: () => void }) {
   const [rating, setRating] = useState(5);
@@ -460,6 +460,46 @@ function getDayLabel(dateStr: string) {
   return date.toLocaleDateString('en-IN', { weekday: 'long' });
 }
 
+// Days of week labels
+const DAYS_OF_WEEK = [
+  { value: 0, label: 'Sunday', short: 'Sun' },
+  { value: 1, label: 'Monday', short: 'Mon' },
+  { value: 2, label: 'Tuesday', short: 'Tue' },
+  { value: 3, label: 'Wednesday', short: 'Wed' },
+  { value: 4, label: 'Thursday', short: 'Thu' },
+  { value: 5, label: 'Friday', short: 'Fri' },
+  { value: 6, label: 'Saturday', short: 'Sat' },
+];
+
+/**
+ * For a given recurring schedule, return the next N weeks of slot start times
+ * that haven't passed yet, looking ahead `weeksAhead` weeks from today.
+ */
+function getUpcomingDatesForSchedule(schedule: RecurringSchedule, weeksAhead = 4): Date[] {
+  const results: Date[] = [];
+  const now = new Date();
+  const [hh, mm] = schedule.time_of_day.split(':').map(Number);
+
+  for (let w = 0; w <= weeksAhead; w++) {
+    const candidate = new Date();
+    // Find the next occurrence of day_of_week in week offset w
+    const todayDay = now.getDay();
+    const targetDay = schedule.day_of_week;
+    let daysUntil = (targetDay - todayDay + 7) % 7;
+    if (w > 0) daysUntil += w * 7;
+    else if (daysUntil === 0) {
+      // Same day — check if time has passed
+      const todaySameTime = new Date();
+      todaySameTime.setHours(hh, mm, 0, 0);
+      if (todaySameTime <= now) daysUntil = 7; // skip to next week
+    }
+    candidate.setDate(now.getDate() + daysUntil);
+    candidate.setHours(hh, mm, 0, 0);
+    if (candidate > now) results.push(candidate);
+  }
+  return results;
+}
+
 function MentorDashboard({ userId, mentorProfileId, expertise }: { userId: string; mentorProfileId: string; expertise: string[] }) {
   const { profile } = useAuthStore();
   const [slots, setSlots] = useState<Slot[]>([]);
@@ -473,6 +513,20 @@ function MentorDashboard({ userId, mentorProfileId, expertise }: { userId: strin
   const [deletingSlotId, setDeletingSlotId] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
 
+  // Availability tab: 'onetime' | 'recurring'
+  const [availTab, setAvailTab] = useState<'onetime' | 'recurring'>('onetime');
+
+  // Recurring schedule state
+  const [recurringSchedules, setRecurringSchedules] = useState<RecurringSchedule[]>([]);
+  const [recDay, setRecDay] = useState(1); // Monday default
+  const [recTime, setRecTime] = useState('18:00');
+  const [recDuration, setRecDuration] = useState(45);
+  const [recTopic, setRecTopic] = useState(expertise[0] ?? TOPICS[0].id);
+  const [recError, setRecError] = useState<string | null>(null);
+  const [savingRec, setSavingRec] = useState(false);
+  const [togglingRecId, setTogglingRecId] = useState<string | null>(null);
+  const [deletingRecId, setDeletingRecId] = useState<string | null>(null);
+
   const profileUrl = `${window.location.origin}/mentors/${mentorProfileId}`;
 
   const handleCopyLink = () => {
@@ -484,18 +538,73 @@ function MentorDashboard({ userId, mentorProfileId, expertise }: { userId: strin
 
   const availableTopics = TOPICS.filter((t) => expertise.length === 0 || expertise.includes(t.id));
 
+  // Auto-generate slots for active recurring schedules (next 4 weeks)
+  const autoGenerateSlots = async (schedules: RecurringSchedule[], existingSlots: Slot[]) => {
+    const activeSchedules = schedules.filter((s) => s.is_active);
+    if (activeSchedules.length === 0) return;
+
+    // Build a Set of existing slot times (rounded to minute) to avoid duplicates
+    const existingTimes = new Set(
+      existingSlots.map((s) => {
+        const d = new Date(s.start_time);
+        d.setSeconds(0, 0);
+        return d.getTime();
+      })
+    );
+
+    const toInsert: { mentor_id: string; start_time: string; duration_minutes: number; topic: string | null; is_booked: boolean }[] = [];
+
+    for (const sched of activeSchedules) {
+      const upcoming = getUpcomingDatesForSchedule(sched, 4);
+      for (const date of upcoming) {
+        const key = date.getTime();
+        if (!existingTimes.has(key)) {
+          toInsert.push({
+            mentor_id: userId,
+            start_time: date.toISOString(),
+            duration_minutes: sched.duration_minutes,
+            topic: sched.topic,
+            is_booked: false,
+          });
+          existingTimes.add(key); // prevent same-run duplicates
+        }
+      }
+    }
+
+    if (toInsert.length > 0) {
+      await supabase.from('slots').insert(toInsert);
+    }
+  };
+
   const fetchData = async () => {
-    const [{ data: slotData }, { data: bookingData }] = await Promise.all([
+    const [{ data: slotData }, { data: bookingData }, { data: recData }] = await Promise.all([
       supabase.from('slots').select('*').eq('mentor_id', userId).order('start_time', { ascending: true }),
       supabase
         .from('bookings')
         .select('*, student:student_id(*), slot:slot_id(*)')
         .eq('mentor_id', userId)
         .order('created_at', { ascending: false }),
+      supabase.from('recurring_schedules').select('*').eq('mentor_id', userId).order('day_of_week', { ascending: true }),
     ]);
-    setSlots((slotData as Slot[]) ?? []);
+
+    const fetchedSlots = (slotData as Slot[]) ?? [];
+    const fetchedSchedules = (recData as RecurringSchedule[]) ?? [];
+
+    setSlots(fetchedSlots);
     setBookings((bookingData as unknown as Booking[]) ?? []);
+    setRecurringSchedules(fetchedSchedules);
     setLoading(false);
+
+    // Auto-generate slots from active recurring schedules
+    await autoGenerateSlots(fetchedSchedules, fetchedSlots);
+
+    // Re-fetch slots after auto-generation so UI reflects new slots
+    const { data: refreshed } = await supabase
+      .from('slots')
+      .select('*')
+      .eq('mentor_id', userId)
+      .order('start_time', { ascending: true });
+    if (refreshed) setSlots(refreshed as Slot[]);
   };
 
   useEffect(() => {
@@ -532,6 +641,49 @@ function MentorDashboard({ userId, mentorProfileId, expertise }: { userId: strin
     setDeletingSlotId(slotId);
     await supabase.from('slots').delete().eq('id', slotId);
     setDeletingSlotId(null);
+    fetchData();
+  };
+
+  // ── Recurring schedule handlers ──────────────────────────────────────────
+
+  const handleAddRecurring = async (e: FormEvent) => {
+    e.preventDefault();
+    setRecError(null);
+    setSavingRec(true);
+    const { error: insertError } = await supabase.from('recurring_schedules').insert({
+      mentor_id: userId,
+      day_of_week: recDay,
+      time_of_day: recTime + ':00',
+      duration_minutes: recDuration,
+      topic: recTopic,
+      is_active: true,
+    });
+    setSavingRec(false);
+    if (insertError) {
+      setRecError(insertError.message);
+      return;
+    }
+    // Reset form
+    setRecTime('18:00');
+    setRecDuration(45);
+    // Re-fetch everything including new auto-generated slots
+    fetchData();
+  };
+
+  const handleToggleRecurring = async (sched: RecurringSchedule) => {
+    setTogglingRecId(sched.id);
+    await supabase
+      .from('recurring_schedules')
+      .update({ is_active: !sched.is_active })
+      .eq('id', sched.id);
+    setTogglingRecId(null);
+    fetchData();
+  };
+
+  const handleDeleteRecurring = async (schedId: string) => {
+    setDeletingRecId(schedId);
+    await supabase.from('recurring_schedules').delete().eq('id', schedId);
+    setDeletingRecId(null);
     fetchData();
   };
 
@@ -640,144 +792,284 @@ function MentorDashboard({ userId, mentorProfileId, expertise }: { userId: strin
       <div className="grid md:grid-cols-2 gap-8">
         <div>
           <h2 className="font-semibold mb-3 flex items-center gap-1.5">
-            <Calendar size={16} /> Add availability
+            <Calendar size={16} /> Availability
           </h2>
+
           {expertise.length === 0 && (
             <div className="text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-xl px-3 py-2 mb-3">
               Tip: add your interview topics in{' '}
-              <Link to="/profile/edit" className="underline">
-                Edit profile
-              </Link>{' '}
+              <Link to="/profile/edit" className="underline">Edit profile</Link>{' '}
               so students can find you by topic.
             </div>
           )}
-          <form onSubmit={handleAddSlot} className="card p-4 space-y-3 mb-6">
-            {error && <div className="text-xs text-rose-400">{error}</div>}
 
-            {/* Quick Presets */}
-            <div>
-              <label className="label-text">⚡ Quick select time</label>
-              <div className="flex flex-wrap gap-2">
-                {QUICK_PRESETS.map((p) => {
-                  const d = p.getDateTime();
-                  const isPast = d < new Date();
+          {/* ── Tab switcher ── */}
+          <div className="flex bg-slate-100 rounded-xl p-1 gap-1 mb-4">
+            <button
+              type="button"
+              onClick={() => setAvailTab('onetime')}
+              className={`flex-1 flex items-center justify-center gap-1.5 text-xs font-semibold py-2 px-3 rounded-lg transition-all ${
+                availTab === 'onetime'
+                  ? 'bg-white text-slate-800 shadow-sm'
+                  : 'text-slate-500 hover:text-slate-700'
+              }`}
+            >
+              <Plus size={13} /> One-time Slot
+            </button>
+            <button
+              type="button"
+              onClick={() => setAvailTab('recurring')}
+              className={`flex-1 flex items-center justify-center gap-1.5 text-xs font-semibold py-2 px-3 rounded-lg transition-all ${
+                availTab === 'recurring'
+                  ? 'bg-white text-slate-800 shadow-sm'
+                  : 'text-slate-500 hover:text-slate-700'
+              }`}
+            >
+              <Repeat size={13} /> Weekly Schedule
+              {recurringSchedules.filter((r) => r.is_active).length > 0 && (
+                <span className="ml-1 bg-brand-500 text-white text-[10px] rounded-full w-4 h-4 flex items-center justify-center font-bold">
+                  {recurringSchedules.filter((r) => r.is_active).length}
+                </span>
+              )}
+            </button>
+          </div>
+
+          {/* ── ONE-TIME SLOT TAB ── */}
+          {availTab === 'onetime' && (
+            <>
+              <form onSubmit={handleAddSlot} className="card p-4 space-y-3 mb-6">
+                {error && <div className="text-xs text-rose-400">{error}</div>}
+
+                {/* Quick Presets */}
+                <div>
+                  <label className="label-text">⚡ Quick select time</label>
+                  <div className="flex flex-wrap gap-2">
+                    {QUICK_PRESETS.map((p) => {
+                      const d = p.getDateTime();
+                      const isPast = d < new Date();
+                      return (
+                        <button
+                          key={p.label}
+                          type="button"
+                          disabled={isPast}
+                          onClick={() => {
+                            setNewDate(toDateInputValue(d));
+                            setNewTime(toTimeInputValue(d));
+                          }}
+                          className={`text-xs px-3 py-1.5 rounded-full border font-medium transition-all ${
+                            newDate === toDateInputValue(d) && newTime === toTimeInputValue(d)
+                              ? 'bg-brand-50 border-brand-500 text-brand-700'
+                              : isPast
+                              ? 'opacity-30 cursor-not-allowed bg-slate-50 border-slate-200 text-slate-400'
+                              : 'bg-white border-slate-200 text-slate-600 hover:border-brand-400 hover:text-brand-600'
+                          }`}
+                        >
+                          {p.label}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                <div>
+                  <label className="label-text">Topic / round type</label>
+                  <select value={topic} onChange={(e) => setTopic(e.target.value)} className="input-field">
+                    {availableTopics.map((t) => (
+                      <option key={t.id} value={t.id}>{t.label}</option>
+                    ))}
+                  </select>
+                </div>
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="label-text">Date</label>
+                    <input type="date" required value={newDate} onChange={(e) => setNewDate(e.target.value)} className="input-field" />
+                  </div>
+                  <div>
+                    <label className="label-text">Time</label>
+                    <input type="time" required value={newTime} onChange={(e) => setNewTime(e.target.value)} className="input-field" />
+                  </div>
+                </div>
+                <div>
+                  <label className="label-text">Duration (minutes)</label>
+                  <select value={duration} onChange={(e) => setDuration(Number(e.target.value))} className="input-field">
+                    <option value={30}>30 min</option>
+                    <option value={45}>45 min</option>
+                    <option value={60}>60 min (1 hour)</option>
+                  </select>
+                </div>
+                <button type="submit" className="btn-primary w-full">
+                  <Plus size={15} /> Add Slot
+                </button>
+              </form>
+
+              <h3 className="text-sm font-medium text-slate-500 mb-2">Upcoming open slots</h3>
+              <div className="space-y-2">
+                {slots.filter((s) => !s.is_booked).length === 0 && (
+                  <div className="text-sm text-slate-400 bg-slate-50 border border-slate-200 rounded-xl p-5 text-center">
+                    <div className="text-2xl mb-2">📅</div>
+                    <div className="font-medium text-slate-600 mb-1">No open slots yet</div>
+                    <div className="text-xs">Use quick presets above, or set a Weekly Schedule!</div>
+                  </div>
+                )}
+                {slots
+                  .filter((s) => !s.is_booked)
+                  .map((s) => {
+                    const slotDate = new Date(s.start_time);
+                    const dayLabel = getDayLabel(s.start_time);
+                    const timeStr = slotDate.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', hour12: true });
+                    const hour = slotDate.getHours();
+                    const timeOfDay = hour < 12 ? '🌅 Morning' : hour < 17 ? '☀️ Afternoon' : '🌙 Evening';
+                    return (
+                      <div key={s.id} className="card px-4 py-3 text-sm flex justify-between items-center gap-2">
+                        <div className="flex-1 min-w-0">
+                          <div className="font-semibold text-slate-800 flex items-center gap-2 flex-wrap">
+                            {dayLabel}
+                            <span className="text-xs font-normal text-slate-400 bg-slate-100 px-2 py-0.5 rounded-full">{timeOfDay}</span>
+                          </div>
+                          <div className="text-xs text-slate-500 mt-1 flex items-center gap-2 flex-wrap">
+                            <span className="flex items-center gap-1"><Clock size={11}/> {timeStr}</span>
+                            <span>· {s.duration_minutes} min</span>
+                            {s.topic && <span className={topicColor(s.topic)}>{topicLabel(s.topic)}</span>}
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-2 shrink-0">
+                          <button
+                            onClick={() => handleDeleteSlot(s.id)}
+                            disabled={deletingSlotId === s.id}
+                            className="p-1.5 rounded-lg text-rose-400 hover:bg-rose-50 hover:text-rose-600 transition-colors disabled:opacity-40"
+                            title="Delete slot"
+                          >
+                            <Trash2 size={14} />
+                          </button>
+                        </div>
+                      </div>
+                    );
+                  })}
+              </div>
+            </>
+          )}
+
+          {/* ── WEEKLY SCHEDULE TAB ── */}
+          {availTab === 'recurring' && (
+            <>
+              {/* Info banner */}
+              <div className="text-xs text-brand-700 bg-brand-50 border border-brand-200 rounded-xl px-3 py-2.5 mb-4 flex items-start gap-2">
+                <Repeat size={13} className="shrink-0 mt-0.5" />
+                <span>
+                  <strong>Auto-schedule:</strong> Add a weekly recurring time and slots will be automatically created for the next 4 weeks every time you open your dashboard — no manual effort needed!
+                </span>
+              </div>
+
+              {/* Add recurring form */}
+              <form onSubmit={handleAddRecurring} className="card p-4 space-y-3 mb-5">
+                {recError && <div className="text-xs text-rose-400">{recError}</div>}
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="label-text">Day of Week</label>
+                    <select value={recDay} onChange={(e) => setRecDay(Number(e.target.value))} className="input-field">
+                      {DAYS_OF_WEEK.map((d) => (
+                        <option key={d.value} value={d.value}>{d.label}</option>
+                      ))}
+                    </select>
+                  </div>
+                  <div>
+                    <label className="label-text">Time</label>
+                    <input
+                      type="time"
+                      required
+                      value={recTime}
+                      onChange={(e) => setRecTime(e.target.value)}
+                      className="input-field"
+                    />
+                  </div>
+                </div>
+                <div>
+                  <label className="label-text">Topic / round type</label>
+                  <select value={recTopic} onChange={(e) => setRecTopic(e.target.value)} className="input-field">
+                    {availableTopics.map((t) => (
+                      <option key={t.id} value={t.id}>{t.label}</option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <label className="label-text">Duration (minutes)</label>
+                  <select value={recDuration} onChange={(e) => setRecDuration(Number(e.target.value))} className="input-field">
+                    <option value={30}>30 min</option>
+                    <option value={45}>45 min</option>
+                    <option value={60}>60 min (1 hour)</option>
+                  </select>
+                </div>
+                <button type="submit" disabled={savingRec} className="btn-primary w-full">
+                  <Repeat size={15} /> {savingRec ? 'Saving...' : 'Add Recurring Schedule'}
+                </button>
+              </form>
+
+              {/* Existing recurring schedules */}
+              <h3 className="text-sm font-medium text-slate-500 mb-2">Your weekly schedules</h3>
+              <div className="space-y-2">
+                {recurringSchedules.length === 0 && (
+                  <div className="text-sm text-slate-400 bg-slate-50 border border-slate-200 rounded-xl p-5 text-center">
+                    <div className="text-2xl mb-2">🔄</div>
+                    <div className="font-medium text-slate-600 mb-1">No recurring schedule yet</div>
+                    <div className="text-xs">Add one above and never manage slots manually again!</div>
+                  </div>
+                )}
+                {recurringSchedules.map((r) => {
+                  const dayLabel = DAYS_OF_WEEK.find((d) => d.value === r.day_of_week)?.label ?? 'Unknown';
+                  const [hh, mm] = r.time_of_day.split(':');
+                  const displayTime = new Date();
+                  displayTime.setHours(Number(hh), Number(mm), 0, 0);
+                  const timeStr = displayTime.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', hour12: true });
                   return (
-                    <button
-                      key={p.label}
-                      type="button"
-                      disabled={isPast}
-                      onClick={() => {
-                        setNewDate(toDateInputValue(d));
-                        setNewTime(toTimeInputValue(d));
-                      }}
-                      className={`text-xs px-3 py-1.5 rounded-full border font-medium transition-all ${
-                        newDate === toDateInputValue(d) && newTime === toTimeInputValue(d)
-                          ? 'bg-brand-50 border-brand-500 text-brand-700'
-                          : isPast
-                          ? 'opacity-30 cursor-not-allowed bg-slate-50 border-slate-200 text-slate-400'
-                          : 'bg-white border-slate-200 text-slate-600 hover:border-brand-400 hover:text-brand-600'
+                    <div
+                      key={r.id}
+                      className={`card px-4 py-3 text-sm flex justify-between items-center gap-2 transition-opacity ${
+                        r.is_active ? '' : 'opacity-50'
                       }`}
                     >
-                      {p.label}
-                    </button>
+                      <div className="flex-1 min-w-0">
+                        <div className="font-semibold text-slate-800 flex items-center gap-2 flex-wrap">
+                          Every {dayLabel}
+                          {r.is_active ? (
+                            <span className="text-[10px] font-bold bg-emerald-100 text-emerald-700 border border-emerald-200 px-2 py-0.5 rounded-full">ACTIVE</span>
+                          ) : (
+                            <span className="text-[10px] font-bold bg-slate-100 text-slate-500 border border-slate-200 px-2 py-0.5 rounded-full">PAUSED</span>
+                          )}
+                        </div>
+                        <div className="text-xs text-slate-500 mt-1 flex items-center gap-2 flex-wrap">
+                          <span className="flex items-center gap-1"><Clock size={11}/> {timeStr}</span>
+                          <span>· {r.duration_minutes} min</span>
+                          {r.topic && <span className={topicColor(r.topic)}>{topicLabel(r.topic)}</span>}
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-2 shrink-0">
+                        <button
+                          type="button"
+                          onClick={() => handleToggleRecurring(r)}
+                          disabled={togglingRecId === r.id}
+                          title={r.is_active ? 'Pause this schedule' : 'Resume this schedule'}
+                          className="p-1.5 rounded-lg text-slate-400 hover:bg-slate-100 hover:text-slate-700 transition-colors disabled:opacity-40"
+                        >
+                          {r.is_active
+                            ? <ToggleRight size={20} className="text-emerald-500" />
+                            : <ToggleLeft size={20} className="text-slate-400" />}
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleDeleteRecurring(r.id)}
+                          disabled={deletingRecId === r.id}
+                          className="p-1.5 rounded-lg text-rose-400 hover:bg-rose-50 hover:text-rose-600 transition-colors disabled:opacity-40"
+                          title="Delete this recurring schedule"
+                        >
+                          <Trash2 size={14} />
+                        </button>
+                      </div>
+                    </div>
                   );
                 })}
               </div>
-            </div>
-
-            <div>
-              <label className="label-text">Topic / round type</label>
-              <select value={topic} onChange={(e) => setTopic(e.target.value)} className="input-field">
-                {availableTopics.map((t) => (
-                  <option key={t.id} value={t.id}>
-                    {t.label}
-                  </option>
-                ))}
-              </select>
-            </div>
-            <div className="grid grid-cols-2 gap-3">
-              <div>
-                <label className="label-text">Date</label>
-                <input
-                  type="date"
-                  required
-                  value={newDate}
-                  onChange={(e) => setNewDate(e.target.value)}
-                  className="input-field"
-                />
-              </div>
-              <div>
-                <label className="label-text">Time</label>
-                <input
-                  type="time"
-                  required
-                  value={newTime}
-                  onChange={(e) => setNewTime(e.target.value)}
-                  className="input-field"
-                />
-              </div>
-            </div>
-            <div>
-              <label className="label-text">Duration (minutes)</label>
-              <select
-                value={duration}
-                onChange={(e) => setDuration(Number(e.target.value))}
-                className="input-field"
-              >
-                <option value={30}>30 min</option>
-                <option value={45}>45 min</option>
-                <option value={60}>60 min (1 hour)</option>
-              </select>
-            </div>
-            <button type="submit" className="btn-primary w-full">
-              <Plus size={15} /> Add Slot
-            </button>
-          </form>
-
-          <h3 className="text-sm font-medium text-slate-500 mb-2">Upcoming open slots</h3>
-          <div className="space-y-2">
-            {slots.filter((s) => !s.is_booked).length === 0 && (
-              <div className="text-sm text-slate-400 bg-slate-50 border border-slate-200 rounded-xl p-5 text-center">
-                <div className="text-2xl mb-2">📅</div>
-                <div className="font-medium text-slate-600 mb-1">No open slots yet</div>
-                <div className="text-xs">Use the quick presets above to add a slot in seconds!</div>
-              </div>
-            )}
-            {slots
-              .filter((s) => !s.is_booked)
-              .map((s) => {
-                const slotDate = new Date(s.start_time);
-                const dayLabel = getDayLabel(s.start_time);
-                const timeStr = slotDate.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', hour12: true });
-                const hour = slotDate.getHours();
-                const timeOfDay = hour < 12 ? '🌅 Morning' : hour < 17 ? '☀️ Afternoon' : '🌙 Evening';
-                return (
-                  <div key={s.id} className="card px-4 py-3 text-sm flex justify-between items-center gap-2">
-                    <div className="flex-1 min-w-0">
-                      <div className="font-semibold text-slate-800 flex items-center gap-2 flex-wrap">
-                        {dayLabel}
-                        <span className="text-xs font-normal text-slate-400 bg-slate-100 px-2 py-0.5 rounded-full">{timeOfDay}</span>
-                      </div>
-                      <div className="text-xs text-slate-500 mt-1 flex items-center gap-2 flex-wrap">
-                        <span className="flex items-center gap-1"><Clock size={11}/> {timeStr}</span>
-                        <span>· {s.duration_minutes} min</span>
-                        {s.topic && <span className={topicColor(s.topic)}>{topicLabel(s.topic)}</span>}
-                      </div>
-                    </div>
-                    <div className="flex items-center gap-2 shrink-0">
-                      <button
-                        onClick={() => handleDeleteSlot(s.id)}
-                        disabled={deletingSlotId === s.id}
-                        className="p-1.5 rounded-lg text-rose-400 hover:bg-rose-50 hover:text-rose-600 transition-colors disabled:opacity-40"
-                        title="Delete slot"
-                      >
-                        <Trash2 size={14} />
-                      </button>
-                    </div>
-                  </div>
-                );
-              })}
-          </div>
+            </>
+          )}
         </div>
 
         <div>

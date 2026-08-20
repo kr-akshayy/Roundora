@@ -29,6 +29,17 @@ export interface Slot {
   created_at: string;
 }
 
+export interface RecurringSchedule {
+  id: string;
+  mentor_id: string;
+  day_of_week: number; // 0=Sun, 1=Mon, ..., 6=Sat
+  time_of_day: string; // 'HH:MM:SS'
+  duration_minutes: number;
+  topic: string | null;
+  is_active: boolean;
+  created_at: string;
+}
+
 export type BookingStatus =
   | 'pending'
   | 'confirmed'
